@@ -658,7 +658,7 @@ class Terminal {
       },
       notepad: {
         execute: (args) => {
-          const path = fileSystem.getResolvedPath(this.context.path, args[0]);
+          const path = fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' ');
           try {
             if (path) {
               new TextEditor(path);
@@ -676,7 +676,7 @@ class Terminal {
         }
       },
       run: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]), 'executable'),
+        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), 'executable'),
         help: {
           description: "Execute application",
           usage: "run <file_path>",
@@ -684,7 +684,7 @@ class Terminal {
         }
       },
       open: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]), args[1]),
+        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), args[1]),
         help: {
           description: "Open any file (auto-detect type)",
           usage: "open <file_path> [file_type](audio, video, image, text or executable)",
@@ -959,7 +959,7 @@ class Terminal {
       Math.min(this.history.length, this.historyIndex + direction));
     if (this.historyIndex >= 0 && this.historyIndex !== this.history.length) {
       const history = this.history[this.historyIndex];
-      if (history) this.input.textContent = history;
+      if (typeof history === 'string') this.input.textContent = history;
     } else {
       this.input.textContent = '';
     }
@@ -999,7 +999,7 @@ class Terminal {
   async executeCommand(fullCommand) {
     this.scrollToBottom();
     this.input.contentEditable = false;
-    if (this.history[this.history.length - 1] !== fullCommand) {
+    if (fullCommand && this.history[this.history.length - 1] !== fullCommand) {
       this.history.push(fullCommand);
     }
     this.historyIndex = this.history.length;
@@ -1145,7 +1145,7 @@ class Terminal {
       args = args.slice(targetIndex);
     }
     try {
-      success = fileSystem.rm(this.context.path, args[0], recursive);
+      success = fileSystem.rm(fileSystem.getResolvedPath(this.context.path, args[0])[0], recursive);
     } catch (e) {
       throw new Error(e);
     }
@@ -1168,7 +1168,7 @@ class Terminal {
       throw new Error('Invalid syntax. Use: echo [text] > [filename]');
     }
     const [text, filePath] = parts;
-    const fullPath = fileSystem.getResolvedPath(this.context.path, filePath);
+    const [fullPath] = fileSystem.getResolvedPath(this.context.path, filePath);
     const target = fileSystem._resolvePath(fullPath);
     const success = await fileSystem.writeFile(fullPath, text);
     if (!success) throw new Error(`Failed to write to file '${fullPath}'`);
@@ -1178,8 +1178,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify filename');
     }
-    const content = await fileSystem.decodeContent(fileSystem.readFile(fileSystem.getResolvedPath(this.context.path, args[0]), { asText: true }),
-      'text');
+    const content = await fileSystem.decodeContent(fileSystem.readFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), { asText: true }), 'text');
     if (content === null) {
       throw new Error(`File '${args[0]}' not found`);
     }
@@ -1337,7 +1336,7 @@ class Terminal {
       throw new Error('Usage: mv [source] [target]');
     }
     const [source, target] = args;
-    const success = fileSystem.mv(fileSystem.getResolvedPath(this.context.path, source), fileSystem.getResolvedPath(this.context.path, target));
+    const success = fileSystem.mv(fileSystem.getResolvedPath(this.context.path, source).filter(Boolean).join(' '), fileSystem.getResolvedPath(this.context.path, target).filter(Boolean).join(' '));
     if (success) {
       this.addOutputLine(`Moved '${source}' to '${target}'`);
     }
@@ -1376,7 +1375,7 @@ class Terminal {
       if (!fileName || fileName === '') {
         throw new Error('Could not determine filename. Please specify manually.');
       }
-      const fullPath = fileSystem.getResolvedPath(this.context.path, fileName);
+      const [fullPath] = fileSystem.getResolvedPath(this.context.path, fileName);
       const total = parseInt(response.headers.get('Content-Length') || '0');
       const reader = response.body.getReader();
       const chunks = [];
@@ -1412,7 +1411,7 @@ class Terminal {
     const fileName = args[0];
     let progressBar = null;
     try {
-      const fullPath = fileSystem.getResolvedPath(this.context.path, fileName);
+      const [fullPath] = fileSystem.getResolvedPath(this.context.path, fileName);
       const file = fileSystem._resolvePath(fullPath);
       if (!file || file.type !== 'file') {
         throw new Error(`File not found: ${fileName}`);
@@ -1424,9 +1423,9 @@ class Terminal {
       });
       for (const item of extractedFiles) {
         if (item.isDirectory) {
-          fileSystem.mkdirp(fileSystem.getResolvedPath(this.context.path, item.path));
+          fileSystem.mkdirp(fileSystem.getResolvedPath(this.context.path, item.path)[0]);
         } else {
-          const newFilePath = fileSystem.getResolvedPath(this.context.path, item.path);
+          const [newFilePath] = fileSystem.getResolvedPath(this.context.path, item.path);
           fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
           await fileSystem.writeFile(newFilePath, item.content, true);
         }
@@ -1442,7 +1441,6 @@ class Terminal {
 
 class TextEditor {
   constructor(args = null, path = null) {
-    console.log(args, path);
     this.path = path || args?.split(' -')[1] || null;
     this.name = this.path?.split('/').pop() ?? null;
     this.app = new Modal(`${this.name || 'New File'} - Text Editor`);
@@ -1961,8 +1959,8 @@ class FileExplorer {
 
         try {
           fileSystem.mv(
-            fileSystem.getResolvedPath(this.context.path, oldName),
-            fileSystem.getResolvedPath(this.context.path, trimmed)
+            fileSystem.getResolvedPath(this.context.path, oldName)[0],
+            fileSystem.getResolvedPath(this.context.path, trimmed)[0]
           );
           this.selectedItem = trimmed;
         } catch (e) {
@@ -2175,7 +2173,7 @@ class FileExplorer {
       }
     } else if (selectedFile.type === "file") {
       try {
-        fileSystem.openFile(fileSystem.getResolvedPath(path, selectedFile.name));
+        fileSystem.openFile(fileSystem.getResolvedPath(path, selectedFile.name).filter(Boolean).join(' '));
       } catch (e) {
         new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
       }
@@ -2187,7 +2185,7 @@ class FileExplorer {
     if (!path) path = this.context.path;
     if (!file) file = fileSystem.ls(path).find((f) => f.name === selectedItem);
     if (file) {
-      fileSystem.showAppPicker(fileSystem.getResolvedPath(path, file.name));
+      fileSystem.showAppPicker(fileSystem.getResolvedPath(path, file.name).filter(Boolean).join(' '));
     }
   }
   renameSelected(file = null, path = null, selectedItem = null) {
@@ -2220,10 +2218,10 @@ class FileExplorer {
         'File Explorer - Confirm Deletion',
         `Are you sure you want to permanently delete "${itemName}"?`,
         `This ${file.type === 'directory' ? 'directory' : 'file'} will be permanently removed from the system and cannot be restored.`,
-        'warning', ['Cancel', 'Delete'], 'Cancel', this.app
+        'warning', ['Delete', 'Cancel'], 'Cancel', this.app
       );
       if (answer === 'Delete') {
-        fileSystem.rm(path, itemName, true);
+        fileSystem.rm(fileSystem.getResolvedPath(path, itemName)[0], true);
         this.updateUI();
       }
     } catch (e) {
@@ -2232,7 +2230,7 @@ class FileExplorer {
   }
   async copyPath(path = null, selectedItem = null) {
     try {
-      if (selectedItem) path = fileSystem.getResolvedPath(path, selectedItem);
+      if (selectedItem) path = fileSystem.getResolvedPath(path, selectedItem)[0];
       await copyText(path);
     } catch (e) {
       new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
@@ -2254,9 +2252,9 @@ class FileExplorer {
       const totalFiles = extractedFiles.length;
       for (const item of extractedFiles) {
         if (item.isDirectory) {
-          fileSystem.mkdirp(fileSystem.getResolvedPath(savedPath, item.path));
+          fileSystem.mkdirp(fileSystem.getResolvedPath(savedPath, item.path)[0]);
         } else {
-          const newFilePath = fileSystem.getResolvedPath(savedPath, item.path);
+          const newFilePath = fileSystem.getResolvedPath(savedPath, item.path)[0];
           fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
           await fileSystem.writeFile(newFilePath, item.content, true);
         }
@@ -3361,7 +3359,7 @@ async function executeFile(path, args = null) {
             eval(content);
           } catch (e) {
             console.error(`Error executing file: ${e.message}`, e);
-            new Dialog('Execution Error', 'Error', `Failed to execute: ${e.message}`, 'error', ['OK'], 'OK');
+            new Dialog('Execution Error', 'An error occurred', e.message, 'error', ['OK'], 'OK');
           }
         }).catch((error) => {
           new Dialog('Read Error', 'Failed to read file', error.message, 'error', ['OK'], 'OK');

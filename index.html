@@ -21,21 +21,21 @@
   <meta property="og:title" content="TermOS — Complete Web Operating System">
   <meta property="og:description"
     content="A full-featured operating system running in your browser with terminal, file manager, and applications.">
-  <meta property="og:image" content="https://davidhaba.github.io/TermX/icon.png">
+  <meta property="og:image" content="https://davidhaba.github.io/TermOS/icon.png">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://davidhaba.github.io/TermX/">
+  <meta property="og:url" content="https://davidhaba.github.io/TermOS/">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="TermOS — Web Operating System">
   <meta name="twitter:description"
     content="A complete operating system with terminal, file manager, and applications running in your browser.">
-  <meta name="twitter:image" content="https://davidhaba.github.io/TermX/icon.png">
+  <meta name="twitter:image" content="https://davidhaba.github.io/TermOS/icon.png">
 </head>
 
 <body>
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v4.5.1',
+    const ver = 'v4.5.2',
       username = 'User',
       icons = {
         arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -170,7 +170,6 @@
         return true;
       }
     }
-
     window.onload = async () => {
       if (username === 'Sololearn') alert("!! Welcome to TermOS !! \n\nThis is a complete web operating system. Explore the terminal, file system, and applications. Feel free to share feedback and suggestions—they help improve the OS! \n\nThanks for trying TermOS!");
       else if (username === '') {
@@ -673,10 +672,10 @@
         }
         return null;
       }
-      getResolvedPath(fullPath, path) {
-        const [cleanPath] = this._splitPathAndArgs(path);
+      getResolvedPath(fullPath, path, withArgs = false) {
+        const [cleanPath, args] = this._splitPathAndArgs(path);
         if (!cleanPath || cleanPath === '/' || cleanPath.startsWith('/')) {
-          return cleanPath;
+          return cleanPath + (withArgs ? ` ${args}` : '');
         }
         const parts = fullPath.split('/').filter(p => p);
         const pathParts = this._parsePath(cleanPath);
@@ -689,7 +688,7 @@
             parts.push(part);
           }
         }
-        return '/' + parts.join('/');
+        return ['/' + parts.join('/'), (withArgs ? args : null)];
       }
       _splitPathAndArgs(pathWithArgs) {
         const [path, ...argsArray] = pathWithArgs.split(' -');
@@ -702,7 +701,7 @@
       _resolvePath(path, startDir = this.globalRoot) {
         if (path === '/') return this.globalRoot;
         if (!path) return startDir;
-        const parts = this._parsePath(this.getResolvedPath('/', path));
+        const parts = this._parsePath([this.getResolvedPath('/', path)][0]);
         let current = startDir;
         for (const part of parts) {
           const found = current.children.find(item => item.name === part);
@@ -724,19 +723,28 @@
         }
         return false;
       }
-      rm(currentPath, name, recursive = false) {
-        const targetDir = this._resolvePath(currentPath);
+      rm(fullPath, recursive = false) {
+        if (!fullPath || typeof fullPath !== 'string') {
+          throw new Error('Invalid path');
+        }
+        const parts = fullPath.split('/').filter(part => part !== '');
+        if (parts.length === 0) {
+          throw new Error('Invalid path');
+        }
+        const name = parts.pop();
+        const dirPath = '/' + parts.join('/');
+        const targetDir = this._resolvePath(dirPath);
         if (!targetDir || targetDir.type !== 'directory') {
           throw new Error('Invalid path');
         }
         const index = this.findIndex(targetDir.children, name);
-        if (index === -1) throw new Error("File or directory does not exist");
-        const item = targetDir.children[index];
+        const item = (index >= 0 && index < targetDir.children.length) ? targetDir.children[index] : null;
+        if (!item) throw new Error("File or directory does not exist");
         if (item.type === 'directory') {
-          if (item.parameters.isSystem === true) throw new Error("Can't remove system directory");
-          if (item.children.length > 0 && !recursive) return false;
-        } else if (item.type === 'file' && item.parameters.isSystem === true) {
-          throw new Error("Can't remove system file");
+          if (item.parameters?.isSystem === true) throw new Error("Can't remove system directory");
+          if (item.children?.length > 0 && !recursive) return false;
+        } else if (item.parameters?.isSystem === true) {
+          throw new Error("Can't remove system " + (item.type === 'file' ? 'file' : 'item'));
         }
         targetDir.children.splice(index, 1);
         this.saveFileSystem();
@@ -753,7 +761,7 @@
         const currentDir = this._resolvePath(dirPath);
         const existingFile = currentDir.children.find(f => f.name === fileName);
         if (existingFile) {
-          if (existingFile.parameters.isSystem === true) {
+          if (existingFile.parameters?.isSystem === true) {
             throw new Error("Can't overwrite system file");
           }
           existingFile.content = isBinary ? new Uint8Array(content) : String(content);
@@ -1030,13 +1038,19 @@
         return false;
       }
     }
-
     class Desktop {
       constructor() {
+        this.selectedIcons = new Set();
+        this.ctrlSelectedIcons = new Set();
+        this.draggedIcon = null;
+        this.draggedIcons = [];
+        this.contextMenu = null;
+        this.lastSelectedIndex = -1;
         this.desktop = document.createElement('div');
         this.desktop.className = "desktop";
         document.body.appendChild(this.desktop);
         this.loadDesktopShortcuts();
+        this.setupEventListeners();
       }
       loadDesktopShortcuts() {
         try {
@@ -1044,42 +1058,28 @@
           if (!desktopItems || desktopItems.length === 0) {
             return;
           }
-          desktopItems.forEach(item => {
-            this.createDesktopIcon(item);
+          desktopItems.forEach((item, i) => {
+            this.createDesktopIcon(item, i);
           });
+          this.gridOverlay = document.createElement('div');
+          this.gridOverlay.className = 'desktop-grid-overlay';
+          this.gridOverlay.style.display = 'none';
+          this.desktop.appendChild(this.gridOverlay);
         } catch (e) {
-          console.error('Error loading desktop shortcuts:', e);
+          console.error('Error loading desktop:', e.message);
         }
       }
-      resolveShortcut(item) {
-        const name = fileSystem._splitPathAndArgs(item.name)[0];
-        if (item.type === 'link') {
-          const linkTarget = String(item.target).trim();
-          const targetFile = fileSystem._resolvePath(linkTarget);
-          return {
-            displayName: name,
-            type: targetFile.type ?? null,
-            targetPath: linkTarget,
-            targetItem: targetFile || null,
-            isLink: true
-          };
+      createDesktopIcon(item, i) {
+        let displayName = fileSystem._splitPathAndArgs(item.name)[0];
+        if (displayName.endsWith('.app')) {
+          displayName = displayName.slice(0, -4);
         }
-        let displayName = name;
-        if (name.endsWith('.app')) {
-          displayName = name.slice(0, -4);
-        }
-        return {
-          displayName: displayName,
-          type: item.type,
-          targetPath: `/bin/desktop/${item.name}`,
-          targetItem: item,
-          isLink: false
-        };
-      }
-      createDesktopIcon(item) {
-        const shortcut = this.resolveShortcut(item);
-        const targetItem = shortcut.targetItem;
+        item.displayName = displayName;
+        item.index = i;
+        const isLink = item.type === 'link';
+        const targetItem = isLink ? fileSystem._resolvePath(item.target) : null;
         const icon = document.createElement("div");
+        icon.dataset.item = JSON.stringify(item);
         icon.className = "desktop-icon";
         let iconSvg;
         if (item.parameters?.icon) {
@@ -1092,17 +1092,22 @@
           if (targetItem.type === 'directory') {
             iconSvg = icons.folder;
           } else {
-            const fileType = fileSystem.getFileType(targetItem.name).type;
-            iconSvg = this.getIconForFileType(fileType);
+            const fileIcon = this.getIconForFileType(fileSystem.getFileType(targetItem.name).type) || null;
+            iconSvg = fileIcon ? fileIcon : icons.file;
           }
         } else {
-          iconSvg = icons.file;
+          if (item.type === 'directory') {
+            iconSvg = icons.folder;
+          } else {
+            const fileIcon = this.getIconForFileType(fileSystem.getFileType(item.name).type) || null;
+            iconSvg = fileIcon ? fileIcon : icons.file;
+          }
         }
         const image = document.createElement("div");
         image.className = "image";
         image.innerHTML = iconSvg;
         icon.appendChild(image);
-        if (shortcut.isLink) {
+        if (isLink) {
           const linkBadge = document.createElement("div");
           linkBadge.className = "link-badge";
           linkBadge.innerHTML = icons.shortcut;
@@ -1110,39 +1115,557 @@
         }
         const label = document.createElement("div");
         label.className = "label";
-        label.textContent = shortcut.displayName;
-        label.title = shortcut.displayName;
+        label.textContent = item.displayName;
+        label.title = item.displayName;
         icon.appendChild(label);
-        if (shortcut.type === 'directory') {
-          icon.addEventListener("click", () => this.handleFolderClick(shortcut.targetPath));
-        } else {
-          icon.addEventListener("click", () => this.handleFileClick(shortcut));
+        icon.draggable = true;
+        let position = item.parameters?.desktopPosition;
+        if (!position) {
+          const { rows } = this.getDesktopGridMetrics();
+          const desktopItems = fileSystem.ls('/bin/desktop');
+          const occupied = new Set();
+          desktopItems.forEach(fsItem => {
+            const fsPos = fsItem.parameters?.desktopPosition;
+            if (fsPos && Number.isInteger(fsPos.col) && Number.isInteger(fsPos.row)) {
+              occupied.add((fsPos.col - 1) * rows + (fsPos.row - 1));
+            }
+          });
+          const nextFreeIndex = this.findNextFreeCell(0, occupied);
+          const col = Math.floor(nextFreeIndex / rows) + 1;
+          const row = (nextFreeIndex % rows) + 1;
+          item.parameters = item.parameters || {};
+          position = { col, row };
+          item.parameters.desktopPosition = position;
+          const desktopItem = fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+          if (desktopItem) {
+            desktopItem.parameters = desktopItem.parameters || {};
+            desktopItem.parameters.desktopPosition = { col, row };
+          }
+          fileSystem.saveFileSystem();
+        }
+        if (position && Number.isInteger(position.col) && Number.isInteger(position.row)) {
+          icon.style.gridColumnStart = String(position.col);
+          icon.style.gridRowStart = String(position.row);
         }
         this.desktop?.appendChild(icon);
+
+        icon.addEventListener('mousedown', (e) => this.handleIconMouseDown(e));
+        icon.addEventListener('mouseup', (e) => this.handleIconMouseUp(e));
+        icon.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          this.handleDblClick(item);
+        });
+        icon.addEventListener('contextmenu', (e) => this.showContextMenu(e));
+        icon.addEventListener('dragstart', (e) => this.handleDragStart(e));
+        icon.addEventListener('dragover', (e) => this.handleDragOver(e));
+        icon.addEventListener('drop', (e) => this.handleDrop(e, icon));
+        icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
+
+        icon.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        icon.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        icon.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+      }
+      getDesktopGridMetrics() {
+        const desktopRect = this.desktop.getBoundingClientRect();
+        const style = window.getComputedStyle(this.desktop);
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingTop = parseFloat(style.paddingTop) || 0;
+        const paddingBottom = parseFloat(style.paddingBottom) || 0;
+        const rowGap = parseFloat(style.rowGap || style.gap) || 16;
+        const columnGap = parseFloat(style.columnGap || style.gap) || 16;
+        const cellSize = 90;
+        const availableHeight = Math.max(1, desktopRect.height - paddingTop - paddingBottom);
+        const rows = Math.max(1, Math.floor((availableHeight + rowGap) / (cellSize + rowGap)));
+        return { desktopRect, paddingLeft, paddingTop, paddingBottom, rowGap, columnGap, cellSize, availableHeight, rows };
+      }
+      getGridCellCenters(columns, rows, cellSize, columnGap, rowGap) {
+        const cellCenters = [];
+        for (let c = 0; c < columns; c++) {
+          for (let r = 0; r < rows; r++) {
+            const centerX = c * (cellSize + columnGap) + cellSize / 2;
+            const centerY = r * (cellSize + rowGap) + cellSize / 2;
+            cellCenters.push({ index: c * rows + r, x: centerX, y: centerY });
+          }
+        }
+        return cellCenters;
+      }
+      getClosestCellIndex(dropX, dropY, columns, rows, cellSize, columnGap, rowGap) {
+        const cellCenters = this.getGridCellCenters(columns, rows, cellSize, columnGap, rowGap);
+        let closestCell = null;
+        let closestDist = Infinity;
+        cellCenters.forEach(cell => {
+          const dx = cell.x - dropX;
+          const dy = cell.y - dropY;
+          const d = dx * dx + dy * dy;
+          if (d < closestDist) {
+            closestDist = d;
+            closestCell = cell;
+          }
+        });
+        return closestCell ? closestCell.index : 0;
+      }
+      getOccupiedCellIndexes(icons, rows) {
+        const occupied = new Set();
+        icons.forEach(icon => {
+          const col = parseInt(icon.style.gridColumnStart || '1', 10) - 1;
+          const row = parseInt(icon.style.gridRowStart || '1', 10) - 1;
+          if (col >= 0 && row >= 0) {
+            occupied.add(col * rows + row);
+          }
+        });
+        return occupied;
+      }
+      getDesktopColumnCount(iconCount, rows, cellSize, columnGap, dropX) {
+        const currentColumns = Math.max(1, Math.ceil(iconCount / rows));
+        const approxTargetColumn = Math.floor(dropX / (cellSize + columnGap));
+        return Math.max(currentColumns, approxTargetColumn + 1);
+      }
+      findNextFreeCell(startIndex, occupied) {
+        let index = startIndex;
+        while (occupied.has(index)) {
+          index++;
+        }
+        return index;
+      }
+      renderGridOverlay(columns, rows, cellSize) {
+        this.gridOverlay.innerHTML = '';
+        this.gridOverlay.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+        this.gridOverlay.style.gridAutoColumns = `minmax(${cellSize}px, ${cellSize}px)`;
+        for (let c = 0; c < columns; c++) {
+          for (let r = 0; r < rows; r++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            this.gridOverlay.appendChild(cell);
+          }
+        }
+        this.gridOverlay.style.display = 'grid';
       }
       getIconForFileType(type) {
         const typeIconMap = {
-          'directory': icons.folder,
-          'video': icons.video,
-          'audio': icons.audio,
-          'text': icons.text,
-          'image': icons.image,
-          'html': icons.browser,
+          'video': icons.fileVideo,
+          'audio': icons.fileAudio,
+          'text': icons.fileText,
+          'image': icons.fileImage,
+          'html': icons.fileHtml,
           'executable': icons.fileExecutable,
           'archive': icons.fileArchive,
           'file': icons.file
         };
         return typeIconMap[type] || icons.file;
       }
-      handleFileClick(shortcut) {
+      handleDblClick(item) {
+        const isLink = item.type === 'link';
+        let path = null;
+        let itemType = item.type;
+        if (isLink) {
+          const targetPath = item.target;
+          const targetItem = fileSystem._resolvePath(targetPath);
+          if (!targetItem) {
+            new Dialog("Error", `Target not found for shortcut '${item.displayName}'`, `The target path '${targetPath}' does not exist.`, "error", ['Ok'], 'Ok');
+            return;
+          }
+          path = targetPath;
+          itemType = targetItem.type;
+        } else {
+          path = fileSystem.getResolvedPath('/bin/desktop', item.name)[0];
+        }
         try {
-          fileSystem.openFile(shortcut.targetPath);
+          if (itemType === 'directory') {
+            new FileExplorer(null, path);
+          } else if (itemType === 'file') {
+            fileSystem.openFile(path);
+          }
         } catch (e) {
-          new Dialog("Error", `Unable to open '${shortcut.targetItem.name}'`, e.message, "error", ['Ok'], 'Ok');
+          new Dialog("Error", `Unable to open '${item.displayName}'`, e.message, "error", ['Ok'], 'Ok');
         }
       }
-      handleFolderClick(path) {
-        new FileExplorer(path);
+      handleIconMouseDown(e) {
+        e.stopPropagation();
+        const icon = e.currentTarget;
+        const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
+        const currentIndex = icons.indexOf(icon);
+        if (e.shiftKey) {
+          if (this.lastSelectedIndex < 0) {
+            this.selectedIcons.clear();
+            this.ctrlSelectedIcons.clear();
+            this.selectedIcons.add(icon);
+            this.lastSelectedIndex = currentIndex;
+          } else {
+            const start = Math.min(this.lastSelectedIndex, currentIndex);
+            const end = Math.max(this.lastSelectedIndex, currentIndex);
+            if (e.ctrlKey) {
+              for (let i = start; i <= end; i++) {
+                this.ctrlSelectedIcons.add(icons[i]);
+                this.selectedIcons.add(icons[i]);
+              }
+            } else {
+              this.selectedIcons.clear();
+              this.ctrlSelectedIcons.forEach(ci => this.selectedIcons.add(ci));
+              for (let i = start; i <= end; i++) {
+                this.selectedIcons.add(icons[i]);
+              }
+            }
+          }
+        } else if (e.ctrlKey) {
+          if (this.ctrlSelectedIcons.has(icon)) {
+            this.ctrlSelectedIcons.delete(icon);
+            this.selectedIcons.delete(icon);
+          } else {
+            this.ctrlSelectedIcons.add(icon);
+            this.selectedIcons.add(icon);
+          }
+          this.lastSelectedIndex = currentIndex;
+        } else if (this.selectedIcons.has(icon)) {
+          this.lastSelectedIndex = currentIndex;
+        } else {
+          this.selectedIcons.clear();
+          this.ctrlSelectedIcons.clear();
+          this.selectedIcons.add(icon);
+          this.lastSelectedIndex = currentIndex;
+        }
+        this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
+          if (this.selectedIcons.has(i)) {
+            i.classList.add('selected');
+          } else {
+            i.classList.remove('selected');
+          }
+        });
+        this.draggedIcon = icon;
+      }
+      handleIconMouseUp(e) {
+        if (!e.ctrlKey && !e.shiftKey && e.button !== 2) {
+          this.selectedIcons.clear();
+          this.ctrlSelectedIcons.clear();
+          this.selectedIcons.add(e.currentTarget);
+          this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
+            if (this.selectedIcons.has(i)) {
+              i.classList.add('selected');
+            } else {
+              i.classList.remove('selected');
+            }
+          });
+        }
+      }
+      handleDragStart(e) {
+        if (!this.draggedIcon || !this.selectedIcons.has(this.draggedIcon)) {
+          e.preventDefault();
+          return;
+        }
+        this.draggedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => this.selectedIcons.has(icon));
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+        this.draggedIcons.forEach(icon => icon.classList.add('dragging'));
+        this.showGridOverlay();
+      }
+      handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }
+      handleDrop(e, targetIcon) {
+        if (targetIcon) return;
+        e.preventDefault();
+        if (!this.draggedIcon) return;
+        const selectedIcons = this.draggedIcons.length > 0 ? this.draggedIcons : Array.from(this.selectedIcons);
+        if (selectedIcons.length === 0) return;
+        const orderedSelectedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => selectedIcons.includes(icon));
+        const { desktopRect, paddingLeft, paddingTop, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
+        const dropX = Math.max(0, e.clientX - desktopRect.left - paddingLeft / 2);
+        const dropY = Math.max(0, e.clientY - desktopRect.top - paddingTop);
+        const nonDraggedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => !selectedIcons.includes(icon));
+        const columns = this.getDesktopColumnCount(nonDraggedIcons.length + orderedSelectedIcons.length, rows, cellSize, columnGap, dropX);
+        const targetIndex = this.getClosestCellIndex(dropX, dropY, columns, rows, cellSize, columnGap, rowGap);
+        const occupied = this.getOccupiedCellIndexes(nonDraggedIcons, rows);
+        let targetCellIndex = this.findNextFreeCell(targetIndex, occupied);
+        orderedSelectedIcons.forEach((icon, idx) => {
+          let cellIndex = this.findNextFreeCell(targetCellIndex + idx, occupied);
+          const col = Math.floor(cellIndex / rows);
+          const row = cellIndex % rows;
+          icon.style.gridColumnStart = String(col + 1);
+          icon.style.gridRowStart = String(row + 1);
+        });
+      }
+      handleDragEnd(e) {
+        this.selectedIcons.forEach(icon => icon.classList.remove('dragging'));
+        this.saveDesktopIconPositions();
+        this.draggedIcon = null;
+        this.draggedIcons = [];
+        this.hideGridOverlay();
+      }
+      showGridOverlay() {
+        const { desktopRect, paddingTop, paddingBottom, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
+        const columns = Math.max(1, Math.floor(desktopRect.width / (cellSize + columnGap)));
+        this.renderGridOverlay(columns, rows, cellSize);
+      }
+      saveDesktopIconPositions() {
+        this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
+          const item = JSON.parse(icon.dataset.item);
+          const col = parseInt(icon.style.gridColumnStart || '', 10);
+          const row = parseInt(icon.style.gridRowStart || '', 10);
+          item.parameters = item.parameters || {};
+          item.parameters.desktopPosition = { col, row };
+          icon.dataset.item = JSON.stringify(item);
+
+          const desktopItem = fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+          if (desktopItem) {
+            desktopItem.parameters = desktopItem.parameters || {};
+            desktopItem.parameters.desktopPosition = { col, row };
+          }
+        });
+        fileSystem.saveFileSystem();
+      }
+      hideGridOverlay() {
+        if (this.gridOverlay) {
+          this.gridOverlay.style.display = 'none';
+          this.gridOverlay.innerHTML = '';
+        }
+      }
+      handleTouchStart(e) {
+        e.stopPropagation();
+        const icon = e.currentTarget;
+        this.touchTimer = setTimeout(() => {
+          const touch = e.touches[0];
+          this.showContextMenu({
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            preventDefault: () => { }
+          });
+        }, 500);
+      }
+      handleTouchMove(e) {
+        if (this.touchTimer) {
+          clearTimeout(this.touchTimer);
+          this.touchTimer = null;
+        }
+      }
+      handleTouchEnd(e) {
+        const icon = e.currentTarget;
+        if (this.touchTimer) {
+          clearTimeout(this.touchTimer);
+          this.clearSelection();
+          this.selectedIcons.add(icon);
+          icon.classList.add('selected');
+          this.touchTimer = null;
+        }
+      }
+      showContextMenu(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.contextMenu) {
+          this.contextMenu.remove();
+        }
+        this.contextMenu = document.createElement('div');
+        this.contextMenu.className = 'context-menu';
+        this.contextMenu.style.position = 'fixed';
+        this.contextMenu.style.zIndex = '10';
+        const openOption = document.createElement('div');
+        openOption.className = 'menu-item open';
+        openOption.innerHTML = `${icons.openFile} Open`;
+        openOption.addEventListener('click', () => {
+          this.selectedIcons.forEach(icon => {
+            this.handleDblClick(JSON.parse(icon.dataset.item));
+          });
+          this.closeContextMenu();
+        });
+        const renameOption = document.createElement('div');
+        renameOption.className = 'menu-item rename';
+        renameOption.innerHTML = `${icons.rename} Rename`;
+        renameOption.addEventListener('click', () => {
+          this.renameIcon(Array.from(this.selectedIcons)[0]);
+          this.closeContextMenu();
+        });
+        const deleteOption = document.createElement('div');
+        deleteOption.className = 'menu-item delete';
+        deleteOption.innerHTML = `${icons.delete} Delete`;
+        deleteOption.addEventListener('click', () => {
+          this.deleteSelectedIcons();
+          this.closeContextMenu();
+        });
+        const refreshOption = document.createElement('div');
+        refreshOption.className = 'menu-item refresh';
+        refreshOption.innerHTML = `${icons.refresh} Refresh`;
+        refreshOption.addEventListener('click', () => {
+          this.refreshDesktop();
+        });
+
+        this.contextMenu.appendChild(openOption);
+        this.contextMenu.appendChild(renameOption);
+        this.contextMenu.appendChild(deleteOption);
+        const separator = document.createElement('hr');
+        separator.style.borderColor = 'rgba(0,255,0,0.2)';
+        this.contextMenu.appendChild(separator);
+        this.contextMenu.appendChild(refreshOption);
+
+        document.body.appendChild(this.contextMenu);
+
+        const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 150));
+        const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 150));
+
+        this.contextMenu.style.left = x + 'px';
+        this.contextMenu.style.top = y + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
+        }, 0);
+      }
+      refreshDesktop() {
+        this.desktop.innerHTML = '';
+        this.loadDesktopShortcuts();
+        this.closeContextMenu();
+      }
+      closeContextMenu() {
+        if (this.contextMenu) {
+          this.contextMenu.remove();
+          this.contextMenu = null;
+        }
+      }
+      renameIcon(icon) {
+        if (!icon) return;
+        const label = icon.querySelector('.label');
+        const currentName = label.textContent;
+        const newName = prompt('Enter new name:', currentName)?.trim();
+        if (newName) {
+          const shortcut = JSON.parse(icon.dataset.item);
+          const [name, args] = fileSystem._splitPathAndArgs(shortcut.name);
+          const nameWithExt = newName + (name.endsWith('.app') ? '.app' : '');
+          const [sourcePath, sourceArgs] = fileSystem.getResolvedPath('/bin/desktop', name);
+          const [targetPath, targetArgs] = fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
+          try {
+            fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
+          } catch (e) {
+            new Dialog("Error", `Failed to rename '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
+            return;
+          }
+          shortcut.displayName = newName;
+          shortcut.name = nameWithExt;
+          icon.remove();
+          this.refreshDesktop();
+        }
+      }
+      clearSelection() {
+        this.desktop.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
+        this.selectedIcons.clear();
+        this.ctrlSelectedIcons.clear();
+        this.lastSelectedIndex = -1;
+      }
+      setupEventListeners() {
+        this.desktop.addEventListener('click', (e) => {
+          if (e.target === this.desktop) {
+            if (!e.ctrlKey && !e.shiftKey) this.clearSelection();
+            this.closeContextMenu();
+          }
+        });
+
+        this.desktop.addEventListener('dragover', (e) => {
+          if (e.target === this.desktop) this.handleDragOver(e);
+        });
+
+        this.desktop.addEventListener('drop', (e) => {
+          if (e.target === this.desktop) this.handleDrop(e, null);
+        });
+
+        this.desktop.addEventListener('contextmenu', (e) => {
+          if (e.target === this.desktop) {
+            e.preventDefault();
+            this.showDesktopContextMenu(e);
+          }
+        });
+
+        document.addEventListener('keydown', async (e) => {
+          if (e.key === 'Delete') {
+            this.deleteSelectedIcons();
+          }
+          if (e.ctrlKey && e.key === 'a') {
+            e.preventDefault();
+            this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
+              this.selectedIcons.add(icon);
+              icon.classList.add('selected');
+            });
+          }
+        });
+      }
+      async deleteSelectedIcons() {
+        const selectedIcons = this.selectedIcons;
+        if (selectedIcons.size <= 0) return;
+        const confirm = await new Dialog("Confirm Delete", `Are you sure you want to delete ${selectedIcons.size} item${selectedIcons.size === 1 ? '' : 's'}?`, "This action cannot be undone.", "warning", ['Delete', 'Cancel'], 'Cancel');
+        if (!confirm || confirm !== 'Delete') return;
+        selectedIcons.forEach(icon => {
+          const shortcut = JSON.parse(icon.dataset.item);
+          try {
+            const [path, args] = fileSystem.getResolvedPath('/bin/desktop/', shortcut.name);
+            fileSystem.rm(path + (args ? ` ${args}` : ''), true);
+            icon.remove();
+            this.selectedIcons.delete(icon);
+          } catch (e) {
+            new Dialog("Error", `Failed to delete '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
+          }
+        });
+      }
+      showDesktopContextMenu(e) {
+        if (this.contextMenu) {
+          this.contextMenu.remove();
+        }
+
+        this.contextMenu = document.createElement('div');
+        this.contextMenu.className = 'context-menu';
+        this.contextMenu.style.position = 'fixed';
+        this.contextMenu.style.zIndex = '10';
+
+        const createFolderOption = document.createElement('div');
+        createFolderOption.className = 'menu-item';
+        createFolderOption.innerHTML = `${icons.newFolder} New Folder`;
+        createFolderOption.addEventListener('click', () => {
+          const folderName = prompt('Enter folder name:')?.trim();
+          if (folderName) {
+            try {
+              fileSystem.mkdir('/bin/desktop', folderName);
+              this.refreshDesktop();
+            } catch (e) {
+              new Dialog("Error", "Failed to create folder", e.message, "error", ['OK'], 'OK');
+            }
+          }
+          this.closeContextMenu();
+        });
+
+        const createFileOption = document.createElement('div');
+        createFileOption.className = 'menu-item';
+        createFileOption.innerHTML = `${icons.newFile} New File`;
+        createFileOption.addEventListener('click', () => {
+          const fileName = prompt('Enter file name:')?.trim();
+          if (fileName) {
+            try {
+              fileSystem.touch('/bin/desktop', fileName);
+              this.refreshDesktop();
+            } catch (e) {
+              new Dialog("Error", "Failed to create file", e.message, "error", ['OK'], 'OK');
+            }
+          }
+          this.closeContextMenu();
+        });
+
+        const refreshOption = document.createElement('div');
+        refreshOption.className = 'menu-item refresh';
+        refreshOption.innerHTML = `${icons.refresh} Refresh`;
+        refreshOption.addEventListener('click', () => {
+          this.refreshDesktop();
+        });
+
+        this.contextMenu.appendChild(createFolderOption);
+        this.contextMenu.appendChild(createFileOption);
+        const separator = document.createElement('hr');
+        this.contextMenu.appendChild(separator);
+        this.contextMenu.appendChild(refreshOption);
+
+        document.body.appendChild(this.contextMenu);
+
+        const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 150));
+        const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 150));
+
+        this.contextMenu.style.left = x + 'px';
+        this.contextMenu.style.top = y + 'px';
+
+        setTimeout(() => {
+          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
+        }, 0);
       }
     }
   </script>
