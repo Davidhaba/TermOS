@@ -1,3 +1,47 @@
+const StorageManager = (() => {
+  let inMemoryStorage = {};
+  let isLocalStorageAvailable = false;
+
+  try {
+    const testKey = '__localStorage_test__';
+    localStorage.setItem(testKey, 'test');
+    localStorage.removeItem(testKey);
+    isLocalStorageAvailable = true;
+  } catch (e) {
+    isLocalStorageAvailable = false;
+  }
+
+  return {
+    getItem(key) {
+      if (isLocalStorageAvailable) {
+        try {
+          return localStorage.getItem(key);
+        } catch (e) { }
+      }
+      return inMemoryStorage[key] || null;
+    },
+    setItem(key, value) {
+      if (isLocalStorageAvailable) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) { }
+      }
+      inMemoryStorage[key] = value;
+    },
+    removeItem(key) {
+      if (isLocalStorageAvailable) {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) { }
+      }
+      delete inMemoryStorage[key];
+    },
+    isAvailable() {
+      return isLocalStorageAvailable;
+    }
+  };
+})();
+
 class Modal {
   constructor(title = "Info") {
     this.appName = title;
@@ -24,6 +68,7 @@ class Modal {
     this.appMain = document.createElement("div");
     this.appMain.classList.add("app-io");
     this.modWindow.appendChild(this.appMain);
+    this.trackedListeners = [];
     this.isDragging = false;
     this.initialX = 0;
     this.initialY = 0;
@@ -44,7 +89,7 @@ class Modal {
       this.checkBlocking(e);
     });
     this.modWindow.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.closeButton) this.closeButton.click();
+      if (e.code === "Escape" && this.closeButton) this.closeButton.click();
     });
     this.modWindow.style.left = `${Math.random() * 50 + 10}px`;
     this.modWindow.style.top = `${Math.random() * 50 + 10}px`;
@@ -131,6 +176,20 @@ class Modal {
     document.addEventListener('mouseup', stopResize);
     document.addEventListener('touchend', stopResize);
   }
+
+  addTrackedListener(element, event, handler, options = false) {
+    element.addEventListener(event, handler, options);
+    this.trackedListeners.push({ element, event, handler, options });
+  }
+
+  removeAllListeners() {
+    this.trackedListeners.forEach(({ element, event, handler, options }) => {
+      try {
+        element.removeEventListener(event, handler, options);
+      } catch (e) { }
+    });
+    this.trackedListeners = [];
+  }
   setupExitBtn(callback = null) {
     if (this.closeButton)
       this.closeButton.addEventListener("click", () => this.handleClose(callback));
@@ -141,9 +200,19 @@ class Modal {
     if (this.modWindow) this.modWindow.style.animation = "anHide 0.1s forwards";
     setTimeout(() => {
       if (this.modWindow) {
+        this.removeAllListeners();
         this.modWindow.style.display = "none";
         this.modWindow.remove();
         this.modWindow = null;
+        this.childApps.forEach(app => app.handleClose());
+      }
+      const openWindows = document.querySelectorAll('.modal-window');
+      if (openWindows.length === 0) {
+        const desktop = document.querySelector('.desktop');
+        if (desktop && typeof desktop.classList !== 'undefined') {
+          desktop.classList.add('active');
+          desktop.focus();
+        }
       }
     }, 100);
   }
@@ -272,6 +341,10 @@ class Modal {
       document.querySelectorAll(".modal-window").forEach((window) => {
         window.classList.remove("active");
       });
+      const desktop = document.querySelector('.desktop');
+      if (desktop && desktop.classList.contains('active')) {
+        desktop.classList.remove('active');
+      }
       if (this.modWindow) {
         this.setTransition("shadow");
         this.modWindow.classList.add("active");
@@ -327,6 +400,7 @@ class Dialog {
       footer.classList.add('title-bar');
       footer.innerHTML = buttonsHtml;
       app.modWindow.appendChild(footer);
+      footer.querySelector('button.primary')?.focus();
       app.modWindow.style.width = 'auto';
       setTimeout(() => {
         const buttons = footer.querySelectorAll('button');
@@ -355,7 +429,7 @@ class Dialog {
         resolve(result);
       };
       footer.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        app.addTrackedListener(btn, 'click', (e) => {
           const action = e.target.getAttribute('data-action') || standart;
           closeDialog(action);
         });
@@ -658,10 +732,10 @@ class Terminal {
       },
       notepad: {
         execute: (args) => {
-          const path = fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' ');
+          const path = fileSystem.getResolvedPath(this.context.path, args[0])[0];
           try {
             if (path) {
-              new TextEditor(path);
+              new TextEditor(null, path);
             } else {
               new TextEditor();
             }
@@ -676,7 +750,7 @@ class Terminal {
         }
       },
       run: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), 'executable'),
+        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], 'executable'),
         help: {
           description: "Execute application",
           usage: "run <file_path>",
@@ -684,7 +758,7 @@ class Terminal {
         }
       },
       open: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), args[1]),
+        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], args[1]),
         help: {
           description: "Open any file (auto-detect type)",
           usage: "open <file_path> [file_type](audio, video, image, text or executable)",
@@ -889,9 +963,9 @@ class Terminal {
     line.appendChild(this.input);
     this.terminalWindow.appendChild(line);
 
-    this.input.addEventListener('input', () => this.updateHint());
-    this.input.addEventListener('keydown', (e) => this.handleInput(e));
-    this.input.addEventListener('mouseup', () => this.placeCaretAtEnd(this.input));
+    this.terminalApp.addTrackedListener(this.input, 'input', () => this.updateHint());
+    this.terminalApp.addTrackedListener(this.input, 'keydown', (e) => this.handleInput(e));
+    this.terminalApp.addTrackedListener(this.input, 'mouseup', () => this.placeCaretAtEnd(this.input));
   }
 
   updatePrompt() {
@@ -1178,7 +1252,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify filename');
     }
-    const content = await fileSystem.decodeContent(fileSystem.readFile(fileSystem.getResolvedPath(this.context.path, args[0]).filter(Boolean).join(' '), { asText: true }), 'text');
+    const content = await fileSystem.decodeContent(fileSystem.readFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], { asText: true }), 'text');
     if (content === null) {
       throw new Error(`File '${args[0]}' not found`);
     }
@@ -1336,9 +1410,13 @@ class Terminal {
       throw new Error('Usage: mv [source] [target]');
     }
     const [source, target] = args;
-    const success = fileSystem.mv(fileSystem.getResolvedPath(this.context.path, source).filter(Boolean).join(' '), fileSystem.getResolvedPath(this.context.path, target).filter(Boolean).join(' '));
-    if (success) {
+    try {
+      const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
+      const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
+      fileSystem.mv(sourceAbsPath, targetAbsPath);
       this.addOutputLine(`Moved '${source}' to '${target}'`);
+    } catch (e) {
+      throw new Error(`Failed to move '${source}': ${e.message}`);
     }
   }
   cp(args) {
@@ -1346,9 +1424,13 @@ class Terminal {
       throw new Error('Usage: cp [source] [target]');
     }
     const [source, target] = args;
-    const success = fileSystem.cp(this.context.path, source, target);
-    if (success) {
+    try {
+      const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
+      const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
+      fileSystem.cp(sourceAbsPath, targetAbsPath);
       this.addOutputLine(`Copied '${source}' to '${target}'`);
+    } catch (e) {
+      throw new Error(`Failed to copy '${source}': ${e.message}`);
     }
   }
   async download(args) {
@@ -1520,22 +1602,22 @@ class TextEditor {
       "UTF-8";
   }
   setupEventListeners() {
-    this.textarea.addEventListener('keydown', (e) => {
+    this.app.addTrackedListener(this.textarea, 'keydown', (e) => {
       this.updateInfoBar();
       if (e.ctrlKey) {
-        switch (e.key.toLowerCase()) {
-          case 's':
+        switch (e.code) {
+          case 'KeyS':
             e.preventDefault();
             this.saveFile();
             break;
-          case 'n':
+          case 'KeyN':
             e.preventDefault();
             this.newFile();
             break;
         }
       }
     });
-    this.textarea.addEventListener('keyup', () => this.updateInfoBar());
+    this.app.addTrackedListener(this.textarea, 'keyup', () => this.updateInfoBar());
     this.updateInfoBar();
     this.app.setupExitBtn(async () => {
       if (await this.checkChanges()) {
@@ -1704,13 +1786,19 @@ class FileExplorer {
     this.app.setupInfoBtn('File Explorer',
       'File Explorer lets you browse folders, open items, and manage files with sorting controls and a context menu for Open, Rename, Delete, and new items.'
     );
-    this.selectedItem = null;
+    this.selectedItems = new Set();
+    this.ctrlSelectedItems = new Set();
+    this.lastSelectedIndex = -1;
     this.renamingItem = null;
+    this.viewMode = 'list';
     this.sortType = "name";
     this.sortOrder = "asc";
     this.contextMenu = null;
     this.initialPath = initialPath;
     this.initUI();
+    this.noFilesFoundMessage = document.createElement('p');
+    this.noFilesFoundMessage.className = 'search-no-results';
+    this.noFilesFoundMessage.textContent = 'No files found.';
   }
   initUI() {
     this.app.setupExitBtn();
@@ -1726,53 +1814,169 @@ class FileExplorer {
       }
     }
     this.appMain.innerHTML = `
-      <div class="explorer-toolbar">
-        <button class="back-btn">${icons.arrowLeft}</button>
-        <button class="refresh-btn">${icons.refresh}</button>
-        <input class="current-path" type="text" value=${this.context.path} readonly>
-      </div>
-      <div class="sort-controls">
-        <button class="sort-btn" data-sort="name">Name ↑</button>
-        <button class="sort-btn" data-sort="type">Type</button>
-        <button class="sort-btn" data-sort="size">Size</button>
-      </div>
-      <div class="file-list"></div>`;
-    [this.backBtn, this.refreshBtn, this.currentPath, this.fileList] = ["back-btn", "refresh-btn", "current-path", "file-list"].map((c) =>
-      this.appMain.querySelector(`.${c}`)
-    );
+      <div class="explorer-container">
+        <div class="explorer-sidebar">
+          <div class="sidebar-section">
+            <div class="sidebar-title">Quick Access</div>
+            <div class="sidebar-items">
+              <div class="sidebar-item" data-path="/home">${icons.folder} Home</div>
+              <div class="sidebar-item" data-path="/bin/desktop">${icons.folder} Desktop</div>
+            </div>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-title">Bookmarks</div>
+            <div class="sidebar-items" id="bookmarks-list"></div>
+            <button class="add-bookmark-btn" title="Add bookmark">+ Add bookmark</button>
+          </div>
+        </div>
+        <div class="explorer-main">
+          <div class="explorer-toolbar">
+            <button class="back-btn" title="Back">${icons.arrowLeft}</button>
+            <button class="refresh-btn" title="Refresh">${icons.refresh}</button>
+            <input class="search-input" type="text" placeholder="Search..." title="Ctrl+F">
+            <div class="view-controls">
+              <button class="view-btn" data-view="list" title="List view">${icons.listView}</button>
+              <button class="view-btn" data-view="compact" title="Compact view">${icons.compactView}</button>
+            </div>
+          </div>
+          <div class="breadcrumb-nav"></div>
+          <div class="sort-controls">
+            <button class="sort-btn" data-sort="name">Name ↑</button>
+            <button class="sort-btn" data-sort="type">Type</button>
+            <button class="sort-btn" data-sort="size">Size</button>
+          </div>
+          <div class="file-list"></div>
+          <div class="explorer-statusbar">
+            <span class="status-items-count">0 items</span>
+            <span class="status-selected-count" style="display:none;"></span>
+            <span class="status-total-size">0 B</span>
+          </div>
+        </div>
+      </div>`;
+    this.appMain.classList.add("explorer-app");
+    [this.backBtn, this.refreshBtn, this.fileList, this.breadcrumbNav, this.statusBar, this.searchInput] = [
+      "back-btn", "refresh-btn", "file-list", "breadcrumb-nav", "explorer-statusbar", "search-input"
+    ].map((c) => this.appMain.querySelector(`.${c}`));
     this.sortButtons = this.appMain.querySelectorAll(".sort-btn");
+    this.sidebarItems = this.appMain.querySelectorAll(".sidebar-item");
+    this.addBookmarkBtn = this.appMain.querySelector(".add-bookmark-btn");
+    this.appMain.classList.remove("padd");
     this.setupEvents();
+    this.loadBookmarks();
     this.updateFileList();
   }
   setupEvents() {
     this.backBtn.onclick = () => this.navigateUp();
     this.refreshBtn.onclick = () => this.updateUI();
-    this.currentPath.addEventListener("click", () => {
-      if (this.currentPath.readOnly) {
-        this.currentPath.readOnly = false;
-        this.currentPath.focus();
+
+    this.app.addTrackedListener(this.searchInput, 'input', (e) => {
+      this.filterFiles(e.target.value);
+    });
+
+    this.app.addTrackedListener(this.searchInput, 'keydown', (e) => {
+      e.stopPropagation();
+      if (e.code === 'Escape') {
+        this.searchInput.value = '';
+        this.filterFiles('');
       }
     });
-    this.currentPath.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        try {
-          if (e.cancelable) e.preventDefault();
-          this.updatePath();
-        } catch (error) {
-          console.error(error.message);
+
+    this.sidebarItems.forEach(item => {
+      this.app.addTrackedListener(item, 'click', () => {
+        const path = item.dataset.path;
+        this.navigateTo(path);
+      });
+    });
+
+    this.app.addTrackedListener(this.addBookmarkBtn, 'click', () => {
+      this.addBookmark(this.context.path);
+    });
+    const viewButtons = this.appMain.querySelectorAll('.view-btn');
+    viewButtons.forEach(btn => {
+      this.app.addTrackedListener(btn, 'click', () => {
+        viewButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.viewMode = btn.dataset.view;
+        if (this.viewMode === 'list') {
+          this.appMain.querySelector('.sort-controls').style.display = 'grid';
+        } else {
+          this.appMain.querySelector('.sort-controls').style.display = 'none';
+        }
+        this.updateFileList();
+      });
+      if (btn.dataset.view === this.viewMode) {
+        btn.classList.add('active');
+      }
+    });
+    this.app.addTrackedListener(this.fileList, "click", (e) => {
+      const t = e.target.closest(".file-item");
+      if (!t) {
+        this.clearSelection();
+        this.updateStatusBar();
+        return;
+      }
+      const items = Array.from(this.fileList.querySelectorAll(".file-item"));
+      const currentIndex = items.indexOf(t);
+      const itemName = t.dataset.name;
+      if (e.shiftKey) {
+        if (this.lastSelectedIndex < 0) {
+          this.selectedItems.clear();
+          this.ctrlSelectedItems.clear();
+          this.selectedItems.add(itemName);
+          this.lastSelectedIndex = currentIndex;
+        } else {
+          const start = Math.min(this.lastSelectedIndex, currentIndex);
+          const end = Math.max(this.lastSelectedIndex, currentIndex);
+          if (e.ctrlKey) {
+            for (let i = start; i <= end; i++) {
+              const name = items[i].dataset.name;
+              this.ctrlSelectedItems.add(name);
+              this.selectedItems.add(name);
+            }
+          } else {
+            this.selectedItems.clear();
+            this.ctrlSelectedItems.forEach(item => this.selectedItems.add(item));
+            for (let i = start; i <= end; i++) {
+              this.selectedItems.add(items[i].dataset.name);
+            }
+          }
+        }
+      } else if (e.ctrlKey) {
+        if (this.selectedItems.has(itemName)) {
+          this.selectedItems.delete(itemName);
+          this.ctrlSelectedItems.delete(itemName);
+        } else {
+          this.ctrlSelectedItems.add(itemName);
+          this.selectedItems.add(itemName);
+        }
+        this.lastSelectedIndex = currentIndex;
+      } else if (this.selectedItems.has(itemName) && this.selectedItems.size === 1) {
+        this.lastSelectedIndex = currentIndex;
+      } else {
+        this.selectedItems.clear();
+        this.ctrlSelectedItems.clear();
+        this.selectedItems.add(itemName);
+        this.lastSelectedIndex = currentIndex;
+      }
+      this.updateFileSelection();
+    });
+    this.app.addTrackedListener(this.fileList, "dblclick", (e) => {
+      const t = e.target.closest(".file-item");
+      if (!t) return;
+      if (!this.selectedItems.has(t.dataset.name)) {
+        this.selectedItems.add(t.dataset.name);
+      }
+      if (this.selectedItems.size > 0) {
+        const selected = Array.from(this.selectedItems);
+        const files = this.getSortedFiles().filter(f => selected.includes(f.name));
+        if (files.length > 0) {
+          this.openSelected(files, this.context.path, selected);
+        } else {
+          this.updateFileList();
         }
       }
     });
-    this.fileList.addEventListener("click", (e) => {
-      this.clearSelection();
-      const t = e.target.closest(".file-item");
-      if (t) {
-        t.classList.add("selected");
-        this.selectedItem = t.dataset.name;
-      }
-    });
-    this.fileList.addEventListener("dblclick", () => this.openSelected());
-    this.fileList.addEventListener("contextmenu", (e) => {
+    this.app.addTrackedListener(this.fileList, "contextmenu", (e) => {
       if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) {
         e.preventDefault();
         e.stopPropagation();
@@ -1786,6 +1990,100 @@ class FileExplorer {
     this.sortButtons.forEach(
       (btn) => (btn.onclick = () => this.handleSort(btn.dataset.sort))
     );
+    this.setupKeyboardShortcuts();
+  }
+  updateFileSelection() {
+    this.fileList.querySelectorAll(".file-item").forEach((item) => {
+      if (this.selectedItems.has(item.dataset.name)) {
+        item.classList.add("selected");
+      } else {
+        item.classList.remove("selected");
+      }
+    });
+    this.updateStatusBar();
+  }
+  setupKeyboardShortcuts() {
+    this.keydownHandler = (e) => {
+      if (!this.modWindow || !this.modWindow.classList.contains("active")) return;
+
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        if (this.selectedItems.size > 0) {
+          this.deleteSelectedMultiple();
+        }
+      } else if (e.ctrlKey) {
+        switch (e.code) {
+          case 'KeyF':
+            e.preventDefault();
+            this.searchInput.focus();
+            break;
+          case 'KeyC':
+            e.preventDefault();
+            if (this.selectedItems.size > 0) {
+              this.copySelected();
+            }
+            break;
+          case 'KeyX':
+            e.preventDefault();
+            if (this.selectedItems.size > 0) {
+              this.cutSelected();
+            }
+            break;
+          case 'KeyV':
+            e.preventDefault();
+            this.pasteSelected();
+            break;
+          case 'KeyA':
+            e.preventDefault();
+            this.selectAll();
+            break;
+        }
+      } else if (e.key === 'Enter' && this.selectedItems.size > 0) {
+        e.preventDefault();
+        const files = this.getSortedFiles().filter(f => this.selectedItems.has(f.name));
+        if (files.length > 0) {
+          this.openSelected(files, this.context.path, this.selectedItems);
+        } else {
+          this.updateFileList();
+        }
+      } else if (e.key === 'F2' && this.selectedItems.size === 1) {
+        e.preventDefault();
+        const firstSelected = Array.from(this.selectedItems)[0];
+        this.renameSelected(null, this.context.path, firstSelected);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        const items = Array.from(this.fileList.querySelectorAll(".file-item"));
+        if (items.length === 0) return;
+        let currentIndex = items.findIndex(item => this.selectedItems.has(item.dataset.name));
+        if (currentIndex === -1) {
+          currentIndex = e.key === 'ArrowUp' ? items.length - 1 : 0;
+        } else {
+          currentIndex += e.key === 'ArrowUp' ? -1 : 1;
+          if (currentIndex < 0) currentIndex = items.length - 1;
+          if (currentIndex >= items.length) currentIndex = 0;
+        }
+        this.clearSelection();
+        this.selectedItems.add(items[currentIndex].dataset.name);
+        this.updateFileSelection();
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        this.updateUI();
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        this.searchInput.focus();
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        this.navigateUp();
+      } else if (e.key === 'F7') {
+        e.preventDefault();
+        this.createNewFolder();
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        if (this.selectedItems.size > 0) {
+          this.deleteSelectedMultiple();
+        }
+      }
+    };
+    this.app.addTrackedListener(this.modWindow, 'keydown', this.keydownHandler);
   }
 
   setupLongPressMenu() {
@@ -1807,10 +2105,9 @@ class FileExplorer {
       if (e.target.closest(".emptyFolder")) return;
       longPressTimer = setTimeout(() => {
         if (longPressTarget) {
-          if (this.selectedItem !== longPressTarget.dataset.name) {
+          if (!this.selectedItems.has(longPressTarget.dataset.name)) {
             this.clearSelection();
-            longPressTarget.classList.add("selected");
-            this.selectedItem = longPressTarget.dataset.name;
+            this.selectedItems.add(longPressTarget.dataset.name);
           }
         } else {
           this.clearSelection();
@@ -1906,10 +2203,16 @@ class FileExplorer {
       this.navigateUp();
       return;
     }
-
     const files = this.getSortedFiles();
-    if (this.selectedItem && !files.find((f) => f.name === this.selectedItem)) {
-      this.clearSelection();
+    const selectedArray = Array.from(this.selectedItems);
+    const validSelected = selectedArray.filter(name => files.find((f) => f.name === name));
+    if (validSelected.length !== selectedArray.length) {
+      validSelected.forEach(name => this.selectedItems.add(name));
+      selectedArray.forEach(name => {
+        if (!files.find((f) => f.name === name)) {
+          this.selectedItems.delete(name);
+        }
+      });
     }
     if (this.renamingItem && !files.find((f) => f.name === this.renamingItem)) {
       this.renamingItem = null;
@@ -1920,17 +2223,27 @@ class FileExplorer {
         const fileNameHtml = isRenaming
           ? `<input class="rename-input" type="text" value="${this.escapeHtml(f.name)}" />`
           : this.escapeHtml(f.name);
-        return `
-      <div class="file-item ${f.type} ${this.selectedItem === f.name ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}">
+
+        if (this.viewMode === 'compact') {
+          return `
+      <div class="file-item compact ${f.type} ${this.selectedItems.has(f.name) ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}" title="${f.name}">
+          <span class="file-icon">${this.getFileIcon(f)}</span>
+          <span class="file-name">${fileNameHtml}</span>
+      </div>`;
+        } else {
+          return `
+      <div class="file-item ${f.type} ${this.selectedItems.has(f.name) ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}">
           <span class="file-icon">${this.getFileIcon(f)}</span>
           <span class="file-name">${fileNameHtml}</span>
           <span class="file-type">${f.type === 'directory' ? 'Folder' : f.type === 'file' ? fileSystem.getFileType(f.name).display : f.type.charAt(0).toUpperCase() + f.type.slice(1).toLowerCase()}</span>
           <span class="file-size">${this.formatItemInfo(f)}</span>
       </div>`;
+        }
       })
         .join("") || '<p class="emptyFolder">This folder is empty.</p>';
-    if (this.selectedItem) {
-      const selectedElement = this.fileList.querySelector(`.file-item[data-name="${this.escapeHtml(this.selectedItem)}"]`);
+    if (this.selectedItems.size > 0) {
+      const firstSelected = Array.from(this.selectedItems)[0];
+      const selectedElement = this.fileList.querySelector(`.file-item[data-name="${this.escapeHtml(firstSelected)}"]`);
       if (selectedElement) {
         selectedElement.scrollIntoView();
       }
@@ -1941,7 +2254,6 @@ class FileExplorer {
       const commitRename = (value) => {
         if (!this.renamingItem) {
           this.updateFileList();
-          console.log("No item is being renamed");
           return;
         }
         const trimmed = String(value || '').trim();
@@ -1962,7 +2274,8 @@ class FileExplorer {
             fileSystem.getResolvedPath(this.context.path, oldName)[0],
             fileSystem.getResolvedPath(this.context.path, trimmed)[0]
           );
-          this.selectedItem = trimmed;
+          this.selectedItems.delete(oldName);
+          this.selectedItems.add(trimmed);
         } catch (e) {
           new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
         }
@@ -2005,6 +2318,8 @@ class FileExplorer {
       renameInput.focus();
       renameInput.select();
     }
+    this.updateBreadcrumb();
+    this.updateStatusBar();
   }
   getFileIcon(f) {
     if (f.parameters?.icon) return f.parameters.icon;
@@ -2036,75 +2351,166 @@ class FileExplorer {
     fileSystem.mkdir(this.context.path, newName);
     this.clearSelection();
     this.renamingItem = newName;
-    this.selectedItem = newName;
+    this.selectedItems.add(newName);
     this.updateFileList();
   }
   showContextMenu(e) {
     if (this.contextMenu) this.contextMenu.remove();
     const savedPath = this.context.path;
-    const savedSelected = this.selectedItem ?? null;
-    const file = savedSelected && fileSystem.ls(savedPath).find((f) => f.name === savedSelected);
-    if (savedSelected && !file) {
-      new Dialog('File Explorer - Error', 'Not found', 'Selected file or directory not found', 'error', ['Ok'], 'Ok', this.app);
-      return;
-    }
+    const savedSelectedArray = Array.from(this.selectedItems);
+    const selectedFiles = savedSelectedArray.map(name => fileSystem.ls(savedPath).find((f) => f.name === name)).filter(Boolean);
+    const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
+    const hasClipboard = clipboardData && clipboardData.paths && clipboardData.paths.length > 0;
+
     this.contextMenu = document.createElement("div");
     this.contextMenu.className = "context-menu";
     let html = "";
-    if (savedSelected) {
-      if (file) {
-        const isArchive = file.type === 'file' && fileSystem.getFileType(file.name).type === "archive";
-        if (file.type === "file") {
-          html += `<div class="menu-item open">${icons.openFile}Open file</div>
-            <div class="menu-item open-as">${icons.openAs}Open as</div>`;
-        } else if (file.type === "directory") {
+
+    if (selectedFiles.length > 0) {
+      const isSingleSelection = selectedFiles.length === 1;
+      const firstFile = selectedFiles[0];
+      const isArchive = firstFile.type === 'file' && fileSystem.getFileType(firstFile.name).type === "archive";
+
+      if (isSingleSelection) {
+        if (firstFile.type === "file") {
+          html += `<div class="menu-item open">${icons.openFile}Open file</div>`;
+          html += `<div class="menu-item open-as">${icons.openAs}Open as</div>`;
+          html += `<hr class="menu-separator">`;
+        } else if (firstFile.type === "directory") {
           html += `<div class="menu-item open">${icons.openFolder}Open Folder</div>`;
+          html += `<div class="menu-item open-new-window">${icons.openNewWindow}Open in New Window</div>`;
+          html += `<hr class="menu-separator">`;
         }
-        html += `<div class="menu-item copyPath">${icons.copy}Copy File Path</div>
-          ${isArchive ? `<div class="menu-item unarchive">${icons.unarchive}Unarchive</div>` : ''}
-          <div class="menu-item rename">${icons.rename}Rename</div>
-          <div class="menu-item delete">${icons.delete}Delete</div>`;
       }
+
+      html += `<div class="menu-item copy">${icons.copy}Copy</div>`;
+      html += `<div class="menu-item cut">${icons.cut}Cut</div>`;
+      if (hasClipboard) {
+        html += `<div class="menu-item paste">${icons.paste}Paste</div>`;
+      }
+      html += `<div class="menu-item copyPath">${icons.copy}Copy ${selectedFiles.length > 1 ? `Paths (${selectedFiles.length})` : 'File Path'}</div>`;
+      html += `<hr class="menu-separator">`;
+
+      if (isSingleSelection) {
+        html += `<div class="menu-item rename">${icons.rename}Rename</div>`;
+        if (isArchive) {
+          html += `<div class="menu-item unarchive">${icons.unarchive}Unarchive</div>`;
+        }
+        html += `<hr class="menu-separator">`;
+      }
+      html += `<div class="menu-item delete">${icons.delete}Delete${selectedFiles.length > 1 ? ` (${selectedFiles.length})` : ''}</div>`;
     } else {
-      html += `<div class="menu-item refresh">${icons.refresh}Refresh</div>
-                 <div class="menu-item new-folder">${icons.newFolder}New Folder</div>
-                 <div class="menu-item new-file">${icons.newFile}New File</div>
-                 <div class="menu-item copyPath">${icons.copy}Copy Current Path</div>`;
+      if (hasClipboard) {
+        html += `<div class="menu-item paste">${icons.paste}Paste</div>`;
+        html += `<hr class="menu-separator">`;
+      }
+      html += `<div class="menu-item new-folder">${icons.newFolder}New Folder</div>`;
+      html += `<div class="menu-item new-file">${icons.newFile}New File</div>`;
+      html += `<hr class="menu-separator">`;
+      html += `<div class="menu-item copyPath">${icons.copy}Copy Current Path</div>`;
+      html += `<div class="menu-item refresh">${icons.refresh}Refresh</div>`;
     }
     this.contextMenu.innerHTML = html;
-    if (savedSelected) {
+
+    if (selectedFiles.length > 0) {
       const openBtn = this.contextMenu.querySelector(".open");
       if (openBtn) {
         openBtn.onclick = () => {
-          this.openSelected(file, savedPath, savedSelected);
-          this.clearSelection();
+          this.openSelected(selectedFiles, savedPath, selectedFiles.map(f => f.name));
         };
       }
-      if (file && file.type === "file") {
-        this.contextMenu.querySelector(".open-as").onclick = () => {
-          this.openAsSelected(file, savedPath, savedSelected);
-          this.clearSelection();
-        };
-        const unArchiveEl = this.contextMenu.querySelector(".unarchive");
-        if (unArchiveEl) unArchiveEl.onclick = async () => {
-          this.unarchiveFile(file, savedPath);
+      if (selectedFiles[0].type === "file") {
+        const openAsBtn = this.contextMenu.querySelector(".open-as");
+        if (openAsBtn) {
+          openAsBtn.onclick = () => {
+            this.openAsSelected(selectedFiles[0], savedPath, selectedFiles[0].name);
+            this.clearSelection();
+          };
+        }
+      } else if (selectedFiles[0].type === "directory") {
+        const openNewWindowBtn = this.contextMenu.querySelector(".open-new-window");
+        if (openNewWindowBtn) {
+          openNewWindowBtn.onclick = () => {
+            new FileExplorer(null, fileSystem.getResolvedPath(savedPath, selectedFiles[0].name)[0]);
+          };
+        }
+      }
+      const copyBtn = this.contextMenu.querySelector(".copy");
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          this.copySelected();
         };
       }
-      this.contextMenu.querySelector(".rename").onclick = () =>
-        this.renameSelected(file, savedPath, savedSelected);
-      this.contextMenu.querySelector(".delete").onclick = async () => {
-        await this.deleteSelected(file, savedPath, savedSelected);
+      const cutBtn = this.contextMenu.querySelector(".cut");
+      if (cutBtn) {
+        cutBtn.onclick = () => {
+          this.cutSelected();
+        };
+      }
+      const pasteBtn = this.contextMenu.querySelector(".paste");
+      if (pasteBtn) {
+        pasteBtn.onclick = () => {
+          this.pasteSelected();
+        };
+      }
+      const renameBtn = this.contextMenu.querySelector(".rename");
+      if (renameBtn) {
+        renameBtn.onclick = () => {
+          this.renameSelected(selectedFiles[0], savedPath, selectedFiles[0].name);
+        };
+      }
+      const unArchiveEl = this.contextMenu.querySelector(".unarchive");
+      if (unArchiveEl) {
+        unArchiveEl.onclick = async () => {
+          this.unarchiveFile(selectedFiles[0], savedPath);
+        };
+      }
+      const deleteBtn = this.contextMenu.querySelector(".delete");
+      if (deleteBtn) {
+        deleteBtn.onclick = async () => {
+          await this.deleteSelectedMultiple(selectedFiles, savedPath);
+        };
+      }
+      const copyPathBtn = this.contextMenu.querySelector(".copyPath");
+      if (copyPathBtn) {
+        copyPathBtn.onclick = () => {
+          const paths = selectedFiles.map(f => fileSystem.getResolvedPath(savedPath, f.name)[0]).join('\n');
+          this.copyPath(savedPath, null, paths);
+        };
       }
     } else {
-      this.contextMenu.querySelector(".refresh").onclick = () =>
-        this.updateUI();
-      this.contextMenu.querySelector(".new-folder").onclick = () =>
-        this.createNewFolder();
-      this.contextMenu.querySelector(".new-file").onclick = () =>
-        this.createNewFile();
+      const pasteBtn = this.contextMenu.querySelector(".paste");
+      if (pasteBtn) {
+        pasteBtn.onclick = () => {
+          this.pasteSelected();
+        };
+      }
+      const newFolderBtn = this.contextMenu.querySelector(".new-folder");
+      if (newFolderBtn) {
+        newFolderBtn.onclick = () => {
+          this.createNewFolder();
+        };
+      }
+      const newFileBtn = this.contextMenu.querySelector(".new-file");
+      if (newFileBtn) {
+        newFileBtn.onclick = () => {
+          this.createNewFile();
+        };
+      }
+      const refreshBtn = this.contextMenu.querySelector(".refresh");
+      if (refreshBtn) {
+        refreshBtn.onclick = () => {
+          this.updateUI();
+        };
+      }
+      const copyPathBtn = this.contextMenu.querySelector(".copyPath");
+      if (copyPathBtn) {
+        copyPathBtn.onclick = () => {
+          this.copyPath(savedPath, null);
+        };
+      }
     }
-    this.contextMenu.querySelector(".copyPath").onclick = () =>
-      this.copyPath(savedPath, savedSelected);
+
     this.appMain.appendChild(this.contextMenu);
     const r = this.modWindow.getBoundingClientRect();
     const x = Math.max(
@@ -2128,7 +2534,9 @@ class FileExplorer {
     }, { once: true });
   }
   clearSelection() {
-    this.selectedItem = null;
+    this.selectedItems.clear();
+    this.ctrlSelectedItems.clear();
+    this.lastSelectedIndex = -1;
     this.fileList
       .querySelectorAll(".file-item")
       .forEach((i) => i.classList.remove("selected"));
@@ -2143,42 +2551,46 @@ class FileExplorer {
     fileSystem.touch(this.context.path, newName);
     this.clearSelection();
     this.renamingItem = newName;
-    this.selectedItem = newName;
+    this.selectedItems.add(newName);
     this.updateFileList();
 
   }
   updateUI() {
     this.fileList.innerHTML = "";
-    if (this.currentPath.value !== this.context.path) {
-      this.clearSelection();
-      this.renamingItem = null;
-      this.currentPath.value = this.context.path;
-    }
-    setTimeout(() => this.updateFileList(), 20);
+    this.renamingItem = null;
+    this.loadBookmarks();
+    setTimeout(() => this.updateFileList(), 10);
   }
-  openSelected(selectedFile = null, path = null, selectedItem = null) {
+  openSelected(selectedFiles = [], path = null, selectedItems = []) {
     if (!path) path = this.context.path;
-    if (!selectedItem) selectedItem = this.selectedItem;
-    if (!selectedFile) {
-      selectedFile = fileSystem.ls(path).find((f) => f.name === selectedItem);
+    if (!selectedItems) selectedItems = this.selectedItems;
+    if (!selectedFiles) {
+      selectedFiles = fileSystem.ls(path).filter((f) => selectedItems.has(f.name));
     }
-    if (!selectedFile) return;
-    if (selectedFile.type === "directory") {
-      try {
-        const newPath = fileSystem.cd(path, selectedFile.name);
-        this.context.path = newPath;
-        this.updateUI();
-      } catch (e) {
-        new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
+    if (!selectedFiles) return;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const selectedFile = selectedFiles[i];
+      if (selectedFile.type === "directory") {
+        try {
+          if (i > 0) {
+            new FileExplorer(null, fileSystem.getResolvedPath(path, selectedFile.name)[0]);
+          } else {
+            const newPath = fileSystem.cd(path, selectedFile.name);
+            this.context.path = newPath;
+            this.updateUI();
+          }
+        } catch (e) {
+          new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
+        }
+      } else if (selectedFile.type === "file") {
+        try {
+          fileSystem.openFile(fileSystem.getResolvedPath(path, selectedFile.name).filter(Boolean).join(' '));
+        } catch (e) {
+          new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
+        }
+      } else {
+        new Dialog('File Explorer - Error', 'Unknown item type', `The selected item "${selectedFile.name}" has an unknown type and cannot be opened.`, 'error', ['Ok'], 'Ok', this.app);
       }
-    } else if (selectedFile.type === "file") {
-      try {
-        fileSystem.openFile(fileSystem.getResolvedPath(path, selectedFile.name).filter(Boolean).join(' '));
-      } catch (e) {
-        new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
-      }
-    } else {
-      new Dialog('File Explorer - Error', 'Unknown item type', `The selected item "${selectedItem}" has an unknown type and cannot be opened.`, 'error', ['Ok'], 'Ok', this.app);
     }
   }
   openAsSelected(file = null, path = null, selectedItem = null) {
@@ -2189,10 +2601,50 @@ class FileExplorer {
     }
   }
   renameSelected(file = null, path = null, selectedItem = null) {
-    this.selectedItem = selectedItem;
-    this.renamingItem = selectedItem;
-    this.updateFileList();
+    if (selectedItem) {
+      this.selectedItems.clear();
+      this.selectedItems.add(selectedItem);
+      this.renamingItem = selectedItem;
+      this.updateFileList();
+    }
   }
+  async deleteSelectedMultiple(files = [], path = null) {
+    if (!path) path = this.context.path;
+    if (files.length === 0) {
+      const allFiles = fileSystem.ls(path);
+      files = Array.from(this.selectedItems).map(name => allFiles.find((f) => f.name === name)).filter(Boolean) || [];
+      if (files.length === 0) return;
+    }
+
+    const systemFiles = files.filter(f => f.parameters?.isSystem === true);
+    if (systemFiles.length > 0) {
+      new Dialog('File Explorer - Access Denied',
+        `Cannot delete system item${systemFiles.length !== 1 ? 's' : ''}.`,
+        (files.length !== 1 ? `${systemFiles.length === files.length ? 'All' : systemFiles.length} of the selected ${files.length} items are protected system file${systemFiles.length !== 1 ? 's' : ''}` : 'The selected item is a protected system file') + ` and cannot be modified.`,
+        'error', ['Ok'], 'Ok', this.app);
+      return;
+    }
+
+    const answer = await new Dialog(
+      'File Explorer - Confirm Deletion',
+      `Are you sure you want to permanently delete ${files.length} item${files.length !== 1 ? 's' : ''}?`,
+      `${files.length !== 1 ? 'These selected items' : 'The selected item'} will be permanently removed from the system and cannot be restored.`,
+      'warning', ['Delete', 'Cancel'], 'Cancel', this.app
+    );
+
+    if (answer === 'Delete') {
+      try {
+        files.forEach(file => {
+          fileSystem.rm(fileSystem.getResolvedPath(path, file.name)[0], true);
+        });
+        this.clearSelection();
+        this.updateUI();
+      } catch (e) {
+        new Dialog('File Explorer - Error', 'An unexpected error occurred.', e.message, 'error', ['Ok'], 'Ok', this.app);
+      }
+    }
+  }
+
   async deleteSelected(file = null, path = null, selectedItem = null) {
     if (!path) path = this.context.path;
     if (!file) file = fileSystem.ls(path).find((f) => f.name === selectedItem);
@@ -2228,10 +2680,14 @@ class FileExplorer {
       new Dialog('File Explorer - Error', 'An unexpected error occurred.', e.message, 'error', ['Ok'], 'Ok', this.app);
     }
   }
-  async copyPath(path = null, selectedItem = null) {
+  async copyPath(path = null, selectedItem = null, customText = null) {
     try {
-      if (selectedItem) path = fileSystem.getResolvedPath(path, selectedItem)[0];
-      await copyText(path);
+      let textToCopy = customText;
+      if (!textToCopy) {
+        if (selectedItem) textToCopy = fileSystem.getResolvedPath(path, selectedItem)[0];
+        else textToCopy = path;
+      }
+      await copyText(textToCopy);
     } catch (e) {
       new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
     }
@@ -2266,6 +2722,201 @@ class FileExplorer {
       this.updateUI();
     } catch (e) {
       manager.setError(e.message);
+    }
+  }
+
+  navigateTo(path) {
+    try {
+      const resolved = fileSystem._resolvePath(path);
+      if (resolved && resolved.type === 'directory') {
+        if (this.context.path !== path) {
+          this.context.path = path;
+          this.clearSelection();
+        }
+        this.updateFileList();
+      }
+    } catch (e) {
+      console.error('Navigation error:', e);
+    }
+  }
+
+  updateBreadcrumb() {
+    if (!this.breadcrumbNav) return;
+    const paths = this.context.path.split('/').filter(p => p);
+    const breadcrumbHTML = [];
+    breadcrumbHTML.push(`<span class="breadcrumb-item" data-path="/">root</span>`);
+    let currentPath = '';
+    paths.forEach((part, index) => {
+      currentPath += '/' + part;
+      const isLast = index === paths.length - 1;
+      breadcrumbHTML.push(`<span class="breadcrumb-sep">›</span>`);
+      breadcrumbHTML.push(`<span class="breadcrumb-item${isLast ? ' active' : ''}" data-path="${currentPath}">${part}</span>`);
+    });
+    breadcrumbHTML.push(`<span class="breadcrumb-sep">›</span>`);
+    this.breadcrumbNav.innerHTML = breadcrumbHTML.join('');
+    this.breadcrumbNav.querySelectorAll('.breadcrumb-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const path = item.dataset.path;
+        this.navigateTo(path);
+      });
+    });
+  }
+
+  updateStatusBar() {
+    if (!this.statusBar) return;
+    const files = fileSystem.ls(this.context.path);
+    const itemsCount = files.length;
+    const selectedCount = this.selectedItems.size;
+    let totalSize = 0;
+    files.forEach(file => {
+      if (file.type === 'file' || file.type === "link")
+        totalSize += fileSystem.getItemSize(file);
+    });
+    this.appMain.querySelector('.status-items-count').textContent =
+      `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
+    const selectedSpan = this.appMain.querySelector('.status-selected-count');
+    if (selectedCount > 0) {
+      selectedSpan.textContent = ` | ${selectedCount} selected`;
+      selectedSpan.style.display = 'inline';
+    } else {
+      selectedSpan.style.display = 'none';
+    }
+    this.appMain.querySelector('.status-total-size').textContent =
+      `${fileSystem.formatSize(totalSize)}`;
+  }
+
+  addBookmark(path) {
+    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '[]');
+    if (!bookmarks.includes(path)) {
+      bookmarks.push(path);
+      StorageManager.setItem('fileExplorerBookmarks', JSON.stringify(bookmarks));
+      this.loadBookmarks();
+    }
+  }
+
+  loadBookmarks() {
+    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '[]');
+    const bookmarksList = this.appMain.querySelector('#bookmarks-list');
+    if (!bookmarksList) return;
+    bookmarksList.innerHTML = '';
+    bookmarks.forEach(path => {
+      const item = document.createElement('div');
+      item.className = 'sidebar-item bookmark-item';
+      item.dataset.path = path;
+      const name = path.split('/').pop() || path;
+      item.innerHTML = `${icons.folder || '📁'} ${name} <span class="bookmark-remove" title="Remove">✕</span>`;
+      item.addEventListener('click', (e) => {
+        if (!e.target.closest('.bookmark-remove')) {
+          this.navigateTo(path);
+        }
+      });
+      item.querySelector('.bookmark-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const updated = bookmarks.filter(b => b !== path);
+        StorageManager.setItem('fileExplorerBookmarks', JSON.stringify(updated));
+        this.loadBookmarks();
+      });
+      bookmarksList.appendChild(item);
+    });
+  }
+
+  copySelected() {
+    const paths = Array.from(this.selectedItems).map(name =>
+      fileSystem.getResolvedPath(this.context.path, name)[0]
+    );
+    const clipboardData = { type: 'copy', paths, source: this.context.path };
+    StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
+  }
+
+  cutSelected() {
+    const paths = Array.from(this.selectedItems).map(name =>
+      fileSystem.getResolvedPath(this.context.path, name)[0]
+    );
+    const clipboardData = { type: 'cut', paths, source: this.context.path };
+    StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
+  }
+
+  pasteSelected() {
+    try {
+      const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
+      if (!clipboardData || !clipboardData.paths || clipboardData.paths.length === 0) return;
+      const { type, paths, source } = clipboardData;
+      const errors = [];
+      const successes = [];
+
+      if (type === 'copy') {
+        paths.forEach(sourcePath => {
+          const fileName = sourcePath.split('/').pop();
+          try {
+            const targetPath = fileSystem.getResolvedPath(this.context.path, fileName)[0];
+            fileSystem.cp(sourcePath, targetPath);
+            successes.push(fileName);
+          } catch (e) {
+            errors.push({ file: fileName, error: e.message });
+          }
+        });
+      } else if (type === 'cut') {
+        paths.forEach(sourcePath => {
+          const fileName = sourcePath.split('/').pop();
+          try {
+            const targetPath = fileSystem.getResolvedPath(this.context.path, fileName)[0];
+            fileSystem.mv(sourcePath, targetPath);
+            successes.push(fileName);
+          } catch (e) {
+            errors.push({ file: fileName, error: e.message });
+          }
+        });
+        if (successes.length === paths.length) {
+          StorageManager.removeItem('fileExplorerClipboard');
+        }
+      }
+
+      if (errors.length > 0) {
+        const errorList = errors.map(e => `• ${e.file}: ${e.error}`).join('\n');
+        new Dialog('File Explorer - Paste Errors',
+          `${successes.length} of ${paths.length} items pasted successfully.`,
+          `Errors:\n${errorList}`,
+          'warning', ['Ok'], 'Ok', this.app);
+      } else if (successes.length > 0) {
+        this.addOutputLine?.(`Successfully ${type === 'copy' ? 'copied' : 'moved'} ${successes.length} item${successes.length !== 1 ? 's' : ''}`);
+      }
+
+      this.updateFileList();
+    } catch (e) {
+      console.error('Paste error:', e);
+      new Dialog('File Explorer - Error', 'Paste operation failed', e.message, 'error', ['Ok'], 'Ok', this.app);
+    }
+  }
+
+  selectAll() {
+    const files = this.getSortedFiles();
+    this.selectedItems.clear();
+    this.ctrlSelectedItems.clear();
+    files.forEach(file => {
+      this.selectedItems.add(file.name);
+    });
+    this.updateFileList();
+  }
+
+  filterFiles(searchTerm) {
+    const items = this.fileList.querySelectorAll('.file-item');
+    const term = searchTerm.toLowerCase().trim();
+    if (this.fileList.contains(this.noFilesFoundMessage)) {
+      this.fileList.removeChild(this.noFilesFoundMessage);
+    }
+    items.forEach(item => {
+      const name = item.dataset.name.toLowerCase();
+      if (term === '' || name.includes(term) || term.includes(name)) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+
+    const visibleItems = Array.from(items).filter(i => i.style.display !== 'none').length;
+    const totalItems = items.length;
+    if (term !== '' && visibleItems === 0) {
+      this.fileList.appendChild(this.noFilesFoundMessage);
     }
   }
 }
@@ -2357,20 +3008,20 @@ class VideoPlayer {
     this.zoomOutBtn = this.appMain.querySelector(".zoom-out");
     this.zoomInBtn = this.appMain.querySelector(".zoom-in");
     this.zoomLevelDisplay = this.appMain.querySelector(".zoom-level");
-    this.zoomOutBtn.addEventListener("click", () =>
+    this.app.addTrackedListener(this.zoomOutBtn, "click", () =>
       this.adjustZoom(-this.zoomStep)
     );
-    this.zoomInBtn.addEventListener("click", () =>
+    this.app.addTrackedListener(this.zoomInBtn, "click", () =>
       this.adjustZoom(this.zoomStep)
     );
-    this.settingsBtn.addEventListener("click", (e) => {
+    this.app.addTrackedListener(this.settingsBtn, "click", (e) => {
       e.stopPropagation();
       this.settingsDropdown.classList.toggle("visible");
     });
-    this.videoScaleSelect.addEventListener("change", () => {
+    this.app.addTrackedListener(this.videoScaleSelect, "change", () => {
       this.video.style.objectFit = this.videoScaleSelect.value;
     });
-    this.playbackSpeedSelect.addEventListener("change", () => {
+    this.app.addTrackedListener(this.playbackSpeedSelect, "change", () => {
       this.video.playbackRate = parseFloat(this.playbackSpeedSelect.value);
     });
     document.addEventListener("click", (e) => {
@@ -2384,17 +3035,17 @@ class VideoPlayer {
     this.video.controls = false;
     this.video.poster =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-    this.video.addEventListener("loadeddata", async () => {
+    this.app.addTrackedListener(this.video, "loadeddata", async () => {
       try {
         const savePlay = this.video.paused;
         await this.video.play();
         if (savePlay) this.video.pause();
       } catch { }
     });
-    this.video.addEventListener("error", (e) => {
+    this.app.addTrackedListener(this.video, "error", (e) => {
       console.error("Video player: an error occurred");
     });
-    this.videoContainer.addEventListener('fullscreenchange', () => {
+    this.app.addTrackedListener(this.videoContainer, 'fullscreenchange', () => {
       const orientation = screen?.orientation;
       if (!orientation) return;
       if (document.fullscreenElement) {
@@ -2456,59 +3107,65 @@ class VideoPlayer {
     this.video.style.transformOrigin = "center center";
   }
   setupEvents() {
-    this.playPauseBtn.addEventListener("click", () => this.togglePlayVideo());
-    this.video.addEventListener("timeupdate", () => {
+    this.app.addTrackedListener(this.playPauseBtn, "click", () => this.togglePlayVideo());
+    this.app.addTrackedListener(this.video, "timeupdate", () => {
       const percent = (this.video.currentTime / this.video.duration) * 100;
       this.progress.style.setProperty("--progress", percent + "%");
       this.progress.value = percent;
       this.updateTimeDisplay();
     });
-    this.video.addEventListener("waiting", () => this.setLoading(true));
-    this.video.addEventListener("playing", () => this.setLoading(false));
-    this.video.addEventListener("seeking", () => this.setLoading(true));
-    this.video.addEventListener("seeked", () => this.setLoading(false));
-    this.video.addEventListener("canplay", () => this.setLoading(false));
-    this.video.addEventListener("stalled", () => this.setLoading(true));
-    this.video.addEventListener("error", () => this.setLoading(false));
+    this.app.addTrackedListener(this.video, "waiting", () => this.setLoading(true));
+    this.app.addTrackedListener(this.video, "playing", () => this.setLoading(false));
+    this.app.addTrackedListener(this.video, "seeking", () => this.setLoading(true));
+    this.app.addTrackedListener(this.video, "seeked", () => this.setLoading(false));
+    this.app.addTrackedListener(this.video, "canplay", () => this.setLoading(false));
+    this.app.addTrackedListener(this.video, "stalled", () => this.setLoading(true));
+    this.app.addTrackedListener(this.video, "error", () => this.setLoading(false));
 
-    this.progress.addEventListener("input", (e) => {
+    this.app.addTrackedListener(this.progress, "input", (e) => {
       try {
         const time = (e.target.value / 100) * this.video.duration;
         this.video.currentTime = time;
       } catch { }
     });
-    this.volumeBtn.addEventListener("click", () => this.updateVolume(this.video.muted ? this.video.volume : 0));
-    this.volume.addEventListener("input", (e) => this.updateVolume(e.target.value));
-    this.fullscreenBtn.addEventListener("click", () => {
+    this.app.addTrackedListener(this.volumeBtn, "click", () => this.updateVolume(this.video.muted ? this.video.volume : 0));
+    this.app.addTrackedListener(this.volume, "input", (e) => this.updateVolume(e.target.value));
+    this.app.addTrackedListener(this.fullscreenBtn, "click", () => {
       this.toggleFullscreen();
     });
-    this.app.modWindow.addEventListener("keydown", (e) => {
+    window.addEventListener("keydown", (e) => {
+      if (!this.app.modWindow.classList.contains("active")) return;
+      this.resetTimeControls();
       switch (e.key) {
-        case " ":
-          e.preventDefault();
-          this.togglePlayVideo();
-          break;
         case "ArrowRight":
+          e.preventDefault();
           this.video.currentTime += 5;
           break;
         case "ArrowLeft":
+          e.preventDefault();
           this.video.currentTime -= 5;
           break;
-        case "f":
-          this.toggleFullscreen();
+        default:
+          if (e.code === "KeyF") {
+            e.preventDefault();
+            this.toggleFullscreen();
+          } else if (e.code === "Space") {
+            e.preventDefault();
+            this.togglePlayVideo();
+          }
           break;
       }
     });
     this.mouseTimeout = null;
-    this.videoContainer.addEventListener("click", (e) => this.resetTimeControls());
-    this.video.addEventListener("click", (e) => this.togglePlayVideo());
-    this.videoContainer.addEventListener("mousemove", () => this.resetTimeControls());
-    this.video.addEventListener("dblclick", () => this.toggleFullscreen());
-    this.video.addEventListener("play", () => {
+    this.app.addTrackedListener(this.app.modWindow, "click", (e) => this.resetTimeControls());
+    this.app.addTrackedListener(this.video, "click", (e) => this.togglePlayVideo());
+    this.app.addTrackedListener(this.videoContainer, "mousemove", () => this.resetTimeControls());
+    this.app.addTrackedListener(this.video, "dblclick", () => this.toggleFullscreen());
+    this.app.addTrackedListener(this.video, "play", () => {
       this.videoContainer.classList.add("playing");
       this.playPauseBtn.innerHTML = icons.play;
     });
-    this.video.addEventListener("pause", () => {
+    this.app.addTrackedListener(this.video, "pause", () => {
       this.videoContainer.classList.remove("playing");
       this.playPauseBtn.innerHTML = icons.pause;
       this.resetTimeControls();
@@ -2668,13 +3325,13 @@ class AudioPlayer {
     this.updateVolumeButton();
   }
   setupEventListeners() {
-    this.playBtn.addEventListener('click', () => this.togglePlay());
-    this.volumeBtn.addEventListener("click", () => this.updateVolume(this.music.muted ? this.music.volume : 0));
-    this.volume.addEventListener("input", (e) => this.updateVolume(e.target.value));
-    this.music.addEventListener('loadedmetadata', () => {
+    this.app.addTrackedListener(this.playBtn, 'click', () => this.togglePlay());
+    this.app.addTrackedListener(this.volumeBtn, "click", () => this.updateVolume(this.music.muted ? this.music.volume : 0));
+    this.app.addTrackedListener(this.volume, "input", (e) => this.updateVolume(e.target.value));
+    this.app.addTrackedListener(this.music, 'loadedmetadata', () => {
       this.updateTimeDisplay();
     });
-    this.music.addEventListener('timeupdate', () => {
+    this.app.addTrackedListener(this.music, 'timeupdate', () => {
       if (this.music.duration) {
         const percent = (this.music.currentTime / this.music.duration) * 100;
         this.progress.style.setProperty("--progress", percent + "%");
@@ -2682,25 +3339,25 @@ class AudioPlayer {
       }
       this.updateTimeDisplay();
     });
-    this.progress.addEventListener("input", (e) => {
+    this.app.addTrackedListener(this.progress, "input", (e) => {
       try {
         this.music.currentTime = (e.target.value / 100) * this.music.duration;
       } catch { }
     });
-    this.music.addEventListener('play', () => {
+    this.app.addTrackedListener(this.music, 'play', () => {
       this.updatePlay(true);
     });
-    this.music.addEventListener('pause', () => {
+    this.app.addTrackedListener(this.music, 'pause', () => {
       this.updatePlay(false);
     });
-    this.music.addEventListener('ended', () => {
+    this.app.addTrackedListener(this.music, 'ended', () => {
       this.updatePlay(false);
     });
-    this.music.addEventListener('volumechange', () => {
+    this.app.addTrackedListener(this.music, 'volumechange', () => {
       this.updateVolumeButton();
     });
 
-    this.app.modWindow.addEventListener('keydown', (e) => {
+    this.app.addTrackedListener(this.app.modWindow, 'keydown', (e) => {
       if (e.code === 'Space') {
         e.preventDefault();
         this.togglePlay();
@@ -2871,7 +3528,7 @@ class TaskManager {
   setupTabListeners() {
     const tabs = this.appMain.querySelectorAll(".tm-tab");
     tabs.forEach(tab => {
-      tab.addEventListener("click", (e) => {
+      this.app.addTrackedListener(tab, "click", (e) => {
         tabs.forEach(t => t.classList.remove("active"));
         const contents = this.appMain.querySelectorAll(".tm-tab-content");
         contents.forEach(c => c.classList.remove("active"));
@@ -2885,7 +3542,7 @@ class TaskManager {
 
   setupButtonListeners() {
     const endTaskBtn = this.appMain.querySelector("#endTask");
-    endTaskBtn.addEventListener("click", () => this.endSelectedTask());
+    this.app.addTrackedListener(endTaskBtn, "click", () => this.endSelectedTask());
   }
 
   setupLongPressMenu() {
