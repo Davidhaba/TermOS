@@ -78,17 +78,17 @@ class Modal {
     this._touchMoveHandler = this.dragging.bind(this);
     this._mouseUpHandler = this.stopDragging.bind(this);
     this._touchEndHandler = this.stopDragging.bind(this);
-    this.titleBar.addEventListener("mousedown", (e) => this.startDragging(e));
-    this.titleBar.addEventListener("touchstart", (e) => this.startDragging(e), {
+    this.addTrackedListener(this.titleBar, "mousedown", (e) => this.startDragging(e));
+    this.addTrackedListener(this.titleBar, "touchstart", (e) => this.startDragging(e), {
       passive: false
     });
-    this.modWindow.addEventListener("mousedown", (e) => {
+    this.addTrackedListener(this.modWindow, "mousedown", (e) => {
       this.checkBlocking(e);
     });
-    this.modWindow.addEventListener("touchstart", (e) => {
+    this.addTrackedListener(this.modWindow, "touchstart", (e) => {
       this.checkBlocking(e);
     });
-    this.modWindow.addEventListener("keydown", (e) => {
+    this.addTrackedListener(this.modWindow, "keydown", (e) => {
       if (e.code === "Escape" && this.closeButton) this.closeButton.click();
     });
     this.modWindow.style.left = `${Math.random() * 50 + 10}px`;
@@ -127,8 +127,8 @@ class Modal {
     maxButton.className = "control max";
     this.controls.appendChild(minButton);
     this.controls.appendChild(maxButton);
-    minButton.addEventListener("click", () => this.handleMinimize());
-    maxButton.addEventListener("click", () => this.handleMaximize());
+    this.addTrackedListener(minButton, "click", () => this.handleMinimize());
+    this.addTrackedListener(maxButton, "click", () => this.handleMaximize());
     minButton.title = "Minimize";
     maxButton.title = "Maximize";
     this.modWindow.classList.add("app-size");
@@ -169,17 +169,22 @@ class Modal {
       isResizing = false;
       if (this.modWindow) this.modWindow.classList.remove("resizing");
     };
-    resizeHandle.addEventListener('mousedown', startResize);
-    resizeHandle.addEventListener('touchstart', startResize, { passive: false });
-    document.addEventListener('mousemove', doResize);
-    document.addEventListener('touchmove', doResize, { passive: false });
-    document.addEventListener('mouseup', stopResize);
-    document.addEventListener('touchend', stopResize);
+    this.addTrackedListener(resizeHandle, 'mousedown', startResize);
+    this.addTrackedListener(resizeHandle, 'touchstart', startResize, { passive: false });
+    this.addTrackedListener(document, 'mousemove', doResize);
+    this.addTrackedListener(document, 'touchmove', doResize, { passive: false });
+    this.addTrackedListener(document, 'mouseup', stopResize);
+    this.addTrackedListener(document, 'touchend', stopResize);
   }
 
   addTrackedListener(element, event, handler, options = false) {
     element.addEventListener(event, handler, options);
     this.trackedListeners.push({ element, event, handler, options });
+  }
+
+  removeTrackedListener(element, event, handler, options = false) {
+    element.removeEventListener(event, handler, options);
+    this.trackedListeners = this.trackedListeners.filter(listener => !(listener.element === element && listener.event === event && listener.handler === handler));
   }
 
   removeAllListeners() {
@@ -192,7 +197,7 @@ class Modal {
   }
   setupExitBtn(callback = null) {
     if (this.closeButton)
-      this.closeButton.addEventListener("click", () => this.handleClose(callback));
+      this.addTrackedListener(this.closeButton, "click", () => this.handleClose(callback));
   }
   async handleClose(callback = null) {
     if (callback && typeof callback === 'function' && await callback() === false) return;
@@ -287,12 +292,12 @@ class Modal {
     const rect = this.modWindow.getBoundingClientRect();
     this.offsetX = this.initialX - rect.left;
     this.offsetY = this.initialY - rect.top;
-    document.addEventListener("mousemove", this._mouseMoveHandler);
-    document.addEventListener("touchmove", this._touchMoveHandler, {
+    this.addTrackedListener(document, "mousemove", this._mouseMoveHandler);
+    this.addTrackedListener(document, "touchmove", this._touchMoveHandler, {
       passive: false
     });
-    document.addEventListener("mouseup", this._mouseUpHandler);
-    document.addEventListener("touchend", this._touchEndHandler);
+    this.addTrackedListener(document, "mouseup", this._mouseUpHandler);
+    this.addTrackedListener(document, "touchend", this._touchEndHandler);
   }
 
   dragging(e) {
@@ -331,10 +336,10 @@ class Modal {
     this.isDragging = false;
     this.activeTouchId = null;
     this.titleBar.style.cursor = "";
-    document.removeEventListener("mousemove", this._mouseMoveHandler);
-    document.removeEventListener("touchmove", this._touchMoveHandler);
-    document.removeEventListener("mouseup", this._mouseUpHandler);
-    document.removeEventListener("touchend", this._touchEndHandler);
+    this.removeTrackedListener(document, "mousemove", this._mouseMoveHandler);
+    this.removeTrackedListener(document, "touchmove", this._touchMoveHandler);
+    this.removeTrackedListener(document, "mouseup", this._mouseUpHandler);
+    this.removeTrackedListener(document, "touchend", this._touchEndHandler);
   }
   setActiveWindow() {
     if (!this.modWindow?.classList.contains("active")) {
@@ -673,8 +678,8 @@ class Terminal {
         execute: this.rm.bind(this),
         help: {
           description: "Remove file or directory",
-          usage: "rm [-r] <path>",
-          example: "rm old_file\nrm -r old_folder"
+          usage: "rm [-r] [-f] <path>",
+          example: "rm old_file\nrm -r old_folder\nrm -f system_file"
         }
       },
       echo: {
@@ -831,8 +836,8 @@ class Terminal {
     this.addOutputLine("Type 'help' for help");
     this.createInputLine();
     this.placeCaretAtEnd(this.input);
-    this.terminalMain.addEventListener('keyup', () => this.placeCaretAtEnd(this.input));
-    this.terminalWindow.addEventListener('click', () => this.input.focus());
+    this.terminalApp.addTrackedListener(this.terminalMain, 'keyup', () => this.placeCaretAtEnd(this.input));
+    this.terminalApp.addTrackedListener(this.terminalWindow, 'click', () => this.input.focus());
 
     const keyboardControls = document.createElement('div');
     keyboardControls.classList.add("keyboard-controls");
@@ -846,7 +851,7 @@ class Terminal {
         `;
     this.terminalMain.appendChild(keyboardControls);
     let lastWinHeight = window.innerHeight;
-    window.addEventListener('resize', () => {
+    this.terminalApp.addTrackedListener(window, 'resize', () => {
       const currentHeight = window.innerHeight;
       if (currentHeight < lastWinHeight) {
         keyboardControls.classList.add('visible');
@@ -855,19 +860,19 @@ class Terminal {
       }
       lastWinHeight = currentHeight;
     });
-    keyboardControls.addEventListener('touchstart', (e) => {
+    this.terminalApp.addTrackedListener(keyboardControls, 'touchstart', (e) => {
       if (e.target.tagName === 'BUTTON') {
         e.target.classList.add("active");
         this.startHandleKey = e.target.dataset.key;
       }
     });
-    keyboardControls.addEventListener('mousedown', (e) => {
+    this.terminalApp.addTrackedListener(keyboardControls, 'mousedown', (e) => {
       if (e.target.tagName === 'BUTTON') {
         e.target.classList.add("active");
         this.startHandleKey = e.target.dataset.key;
       }
     });
-    keyboardControls.addEventListener('touchend', (e) => {
+    this.terminalApp.addTrackedListener(keyboardControls, 'touchend', (e) => {
       const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
       if (button) {
         button.classList.remove("active");
@@ -887,7 +892,7 @@ class Terminal {
         }
       }
     });
-    keyboardControls.addEventListener('mouseup', (e) => {
+    this.terminalApp.addTrackedListener(keyboardControls, 'mouseup', (e) => {
       const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
       if (button) {
         button.classList.remove("active");
@@ -908,13 +913,13 @@ class Terminal {
       }
     });
     keyboardControls.querySelectorAll('button').forEach((button) => {
-      button.addEventListener('touchcancel', (e) => {
+      this.terminalApp.addTrackedListener(button, 'touchcancel', (e) => {
         if (e.target.tagName === 'BUTTON' && e.target.classList.contains("active")) {
           e.target.classList.remove("active");
           this.startHandleKey = null;
         }
       });
-      button.addEventListener('mouseleave', (e) => {
+      this.terminalApp.addTrackedListener(button, 'mouseleave', (e) => {
         if (e.target.tagName === 'BUTTON' && e.target.classList.contains("active")) {
           e.target.classList.remove("active");
           this.startHandleKey = null;
@@ -1207,29 +1212,53 @@ class Terminal {
       this.addOutputLine(`File '${args[0]}' already exists`, 'error');
     }
   }
-  rm(args) {
+  async rm(args) {
     if (args.length === 0) {
       throw new Error('Please specify path');
     }
     let recursive = false;
-    let success;
-    const targetIndex = args.findIndex(arg => arg !== '-r');
-    if (targetIndex !== 0) {
+    let force = false;
+    const forceIndex = args.indexOf('-f');
+    if (forceIndex >= 0) {
+      force = true;
+      args.splice(forceIndex, 1);
+    }
+    const targetIndex = args.indexOf('-r');
+    if (targetIndex >= 0) {
       recursive = true;
-      args = args.slice(targetIndex);
+      args.splice(targetIndex, 1);
     }
+    const fullPath = fileSystem.getResolvedPath(this.context.path, args[0])[0];
     try {
-      success = fileSystem.rm(fileSystem.getResolvedPath(this.context.path, args[0])[0], recursive);
+      const success = fileSystem.rm(fullPath, recursive, force);
+      if (!success) {
+        const errorMsg = recursive ?
+          "Can't remove directory" :
+          "Directory not empty, use -r for recursive removal";
+        throw new Error(errorMsg);
+      }
+      this.addOutputLine(`'${args[0]}' removed`, 'success');
     } catch (e) {
-      throw new Error(e);
+      const message = e.message || String(e);
+      if (message.includes("protected system") && !force) {
+        const answer = await new Dialog('Force Remove', `Protected system ${message.includes('directory') ? 'directory' : message.includes('file') ? 'file' : 'item'}`, `${message}. Do you want to force removal?`, 'question', ['Cancel', 'Force'], 'Force', this.terminalApp);
+        if (answer === 'Force') {
+          try {
+            const success = fileSystem.rm(fullPath, recursive, true);
+            if (!success) {
+              throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
+            }
+            this.addOutputLine(`'${args[0]}' removed with -f`, 'success');
+          } catch (secondError) {
+            throw new Error(secondError.message || String(secondError));
+          }
+        } else {
+          throw new Error(message);
+        }
+      } else {
+        throw e;
+      }
     }
-    if (!success) {
-      const errorMsg = recursive ?
-        "Can't remove directory" :
-        "Directory not empty, use -r for recursive removal";
-      throw new Error(errorMsg);
-    }
-    this.addOutputLine(`'${args[0]}' removed`);
   }
   async echo(args) {
     const input = args.join(' ');
@@ -1524,7 +1553,7 @@ class Terminal {
 class TextEditor {
   constructor(args = null, path = null) {
     this.path = path || args?.split(' -')[1] || null;
-    this.name = this.path?.split('/').pop() ?? null;
+    this.name = this.path?.split('/').pop() || null;
     this.app = new Modal(`${this.name || 'New File'} - Text Editor`);
     this.app.setApp();
     this.app.setupInfoBtn('Text Editor',
@@ -1573,7 +1602,7 @@ class TextEditor {
       e.stopPropagation();
       dropdown.classList.toggle('show');
     };
-    document.addEventListener('click', (e) => {
+    this.app.addTrackedListener(document, 'click', (e) => {
       dropdown.classList.remove('show');
     });
     return toolbar;
@@ -1645,7 +1674,7 @@ class TextEditor {
   }
   async loadFileContent() {
     try {
-      this.textarea.value = await this.getFileContent();
+      this.textarea.value = await this.getFileContent() || '';
       this.app.updateTitle(`${this.name} - Text Editor`);
       this.updateInfoBar();
     } catch (error) {
@@ -1747,7 +1776,7 @@ class ImageViewer {
     this.img.onload = () => {
       this.loader.style.display = 'none';
     };
-    this.img.addEventListener("error", () => {
+    this.app.addTrackedListener(this.img, 'error', () => {
       this.loader.style.display = 'none';
       console.error("Image Viewer: an error occurred");
     });
@@ -1897,11 +1926,8 @@ class FileExplorer {
         viewButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.viewMode = btn.dataset.view;
-        if (this.viewMode === 'list') {
-          this.appMain.querySelector('.sort-controls').style.display = 'grid';
-        } else {
-          this.appMain.querySelector('.sort-controls').style.display = 'none';
-        }
+        const sortControls = this.appMain.querySelector('.sort-controls');
+        if (sortControls) sortControls.style.display = (this.viewMode === 'list') ? 'grid' : 'none';
         this.updateFileList();
       });
       if (btn.dataset.view === this.viewMode) {
@@ -2004,7 +2030,7 @@ class FileExplorer {
   }
   setupKeyboardShortcuts() {
     this.keydownHandler = (e) => {
-      if (!this.modWindow || !this.modWindow.classList.contains("active")) return;
+      if (!this.modWindow || !this.modWindow.classList.contains("active") || e.target.tagName === 'INPUT') return;
 
       if (e.key === 'Delete') {
         e.preventDefault();
@@ -2133,10 +2159,10 @@ class FileExplorer {
       longPressTarget = null;
       touchStartEvent = null;
     };
-    this.fileList.addEventListener("touchstart", startLongPress, { passive: true });
-    this.fileList.addEventListener("touchend", endLongPress);
-    this.fileList.addEventListener("touchmove", endLongPress);
-    this.fileList.addEventListener("touchcancel", endLongPress);
+    this.app.addTrackedListener(this.fileList, 'touchstart', startLongPress, { passive: true });
+    this.app.addTrackedListener(this.fileList, 'touchend', endLongPress);
+    this.app.addTrackedListener(this.fileList, 'touchmove', endLongPress);
+    this.app.addTrackedListener(this.fileList, 'touchcancel', endLongPress);
   }
   updatePath() {
     this.currentPath.readOnly = true;
@@ -2283,36 +2309,35 @@ class FileExplorer {
         this.updateFileList();
       };
       let renameCommittedByEnter = false;
-      renameInput.addEventListener('keydown', (e) => {
+      this.app.addTrackedListener(renameInput, 'keydown', (e) => {
         if (!this.renamingItem || this.selectedItem !== this.renamingItem) return;
-        if (e.key === 'Enter') {
+        e.stopPropagation();
+        if (e.code === 'Enter') {
           e.preventDefault();
-          e.stopPropagation();
           renameCommittedByEnter = true;
           this.app?.setActiveWindow();
           commitRename(renameInput.value);
-        } else if (e.key === 'Escape') {
+        } else if (e.code === 'Escape') {
           e.preventDefault();
-          e.stopPropagation();
           renameCommittedByEnter = true;
           this.renamingItem = null;
           this.updateFileList();
           this.app?.setActiveWindow();
         }
       });
-      renameInput.addEventListener('blur', () => {
+      this.app.addTrackedListener(renameInput, 'blur', () => {
         if (renameCommittedByEnter) {
           renameCommittedByEnter = false;
           return;
         }
         commitRename(renameInput.value);
       });
-      renameInput.addEventListener('click', (e) => {
+      this.app.addTrackedListener(renameInput, 'click', (e) => {
       });
-      renameInput.addEventListener('dblclick', (e) => {
+      this.app.addTrackedListener(renameInput, 'dblclick', (e) => {
         e.stopPropagation();
       });
-      renameInput.addEventListener('contextmenu', (e) => {
+      this.app.addTrackedListener(renameInput, 'contextmenu', (e) => {
         e.stopPropagation();
       });
       renameInput.focus();
@@ -2396,7 +2421,6 @@ class FileExplorer {
         if (isArchive) {
           html += `<div class="menu-item unarchive">${icons.unarchive}Unarchive</div>`;
         }
-        html += `<hr class="menu-separator">`;
       }
       html += `<div class="menu-item delete">${icons.delete}Delete${selectedFiles.length > 1 ? ` (${selectedFiles.length})` : ''}</div>`;
     } else {
@@ -2529,7 +2553,7 @@ class FileExplorer {
     );
     this.contextMenu.style.left = `${x}px`;
     this.contextMenu.style.top = `${y}px`;
-    document.addEventListener("click", (e) => {
+    this.app.addTrackedListener(document, "click", (e) => {
       this.contextMenu?.remove();
     }, { once: true });
   }
@@ -2620,7 +2644,7 @@ class FileExplorer {
     if (systemFiles.length > 0) {
       new Dialog('File Explorer - Access Denied',
         `Cannot delete system item${systemFiles.length !== 1 ? 's' : ''}.`,
-        (files.length !== 1 ? `${systemFiles.length === files.length ? 'All' : systemFiles.length} of the selected ${files.length} items are protected system file${systemFiles.length !== 1 ? 's' : ''}` : 'The selected item is a protected system file') + ` and cannot be modified.`,
+        (files.length !== 1 ? `${systemFiles.length === files.length ? 'All' : systemFiles.length} of the selected ${files.length} items are protected system file${systemFiles.length !== 1 ? 's' : ''}` : `The selected item is a protected system ${systemFiles[0].type === 'directory' ? 'directory' : 'file'}`) + ` and cannot be modified.`,
         'error', ['Ok'], 'Ok', this.app);
       return;
     }
@@ -2755,7 +2779,7 @@ class FileExplorer {
     breadcrumbHTML.push(`<span class="breadcrumb-sep">›</span>`);
     this.breadcrumbNav.innerHTML = breadcrumbHTML.join('');
     this.breadcrumbNav.querySelectorAll('.breadcrumb-item').forEach(item => {
-      item.addEventListener('click', () => {
+      this.app.addTrackedListener(item, 'click', () => {
         const path = item.dataset.path;
         this.navigateTo(path);
       });
@@ -2772,17 +2796,19 @@ class FileExplorer {
       if (file.type === 'file' || file.type === "link")
         totalSize += fileSystem.getItemSize(file);
     });
-    this.appMain.querySelector('.status-items-count').textContent =
-      `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
+    const itemsSpan = this.appMain.querySelector('.status-items-count');
+    if (itemsSpan) itemsSpan.textContent = `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
     const selectedSpan = this.appMain.querySelector('.status-selected-count');
-    if (selectedCount > 0) {
-      selectedSpan.textContent = ` | ${selectedCount} selected`;
-      selectedSpan.style.display = 'inline';
-    } else {
-      selectedSpan.style.display = 'none';
+    if (selectedSpan) {
+      if (selectedCount > 0) {
+        selectedSpan.textContent = `| ${selectedCount} selected`;
+        selectedSpan.style.display = 'inline';
+      } else {
+        selectedSpan.style.display = 'none';
+      }
     }
-    this.appMain.querySelector('.status-total-size').textContent =
-      `${fileSystem.formatSize(totalSize)}`;
+    const totalSpan = this.appMain.querySelector('.status-total-size');
+    if (totalSpan) totalSpan.textContent = `${fileSystem.formatSize(totalSize)}`;
   }
 
   addBookmark(path) {
@@ -2805,12 +2831,12 @@ class FileExplorer {
       item.dataset.path = path;
       const name = path.split('/').pop() || path;
       item.innerHTML = `${icons.folder || '📁'} ${name} <span class="bookmark-remove" title="Remove">✕</span>`;
-      item.addEventListener('click', (e) => {
+      this.app.addTrackedListener(item, 'click', (e) => {
         if (!e.target.closest('.bookmark-remove')) {
           this.navigateTo(path);
         }
       });
-      item.querySelector('.bookmark-remove').addEventListener('click', (e) => {
+      this.app.addTrackedListener(item.querySelector('.bookmark-remove'), 'click', (e) => {
         e.stopPropagation();
         const updated = bookmarks.filter(b => b !== path);
         StorageManager.setItem('fileExplorerBookmarks', JSON.stringify(updated));
@@ -2872,7 +2898,7 @@ class FileExplorer {
       }
 
       if (errors.length > 0) {
-        const errorList = errors.map(e => `• ${e.file}: ${e.error}`).join('\n');
+        const errorList = errors.map(e => `<br>• ${e.file}: ${e.error}`).join('\n');
         new Dialog('File Explorer - Paste Errors',
           `${successes.length} of ${paths.length} items pasted successfully.`,
           `Errors:\n${errorList}`,
@@ -3024,7 +3050,7 @@ class VideoPlayer {
     this.app.addTrackedListener(this.playbackSpeedSelect, "change", () => {
       this.video.playbackRate = parseFloat(this.playbackSpeedSelect.value);
     });
-    document.addEventListener("click", (e) => {
+    this.app.addTrackedListener(document, "click", (e) => {
       if (
         !this.settingsDropdown.contains(e.target) &&
         !this.settingsBtn.contains(e.target)
@@ -3133,7 +3159,7 @@ class VideoPlayer {
     this.app.addTrackedListener(this.fullscreenBtn, "click", () => {
       this.toggleFullscreen();
     });
-    window.addEventListener("keydown", (e) => {
+    this.app.addTrackedListener(window, "keydown", (e) => {
       if (!this.app.modWindow.classList.contains("active")) return;
       this.resetTimeControls();
       switch (e.key) {
@@ -3590,10 +3616,10 @@ class TaskManager {
       touchStartEvent = null;
     };
 
-    container.addEventListener('touchstart', startLongPress, { passive: true });
-    container.addEventListener('touchend', endLongPress);
-    container.addEventListener('touchmove', endLongPress);
-    container.addEventListener('touchcancel', endLongPress);
+    this.app.addTrackedListener(container, 'touchstart', startLongPress, { passive: true });
+    this.app.addTrackedListener(container, 'touchend', endLongPress);
+    this.app.addTrackedListener(container, 'touchmove', endLongPress);
+    this.app.addTrackedListener(container, 'touchcancel', endLongPress);
   }
 
   getApplications() {
@@ -3793,7 +3819,7 @@ class TaskManager {
   attachProcessListeners(container) {
     const expandBtns = container.querySelectorAll(".tm-expand-btn");
     expandBtns.forEach(btn => {
-      btn.addEventListener("click", (e) => {
+      this.app.addTrackedListener(btn, "click", (e) => {
         e.stopPropagation();
         const item = btn.closest(".tm-process-item");
         const index = parseInt(item.dataset.index);
@@ -3811,7 +3837,7 @@ class TaskManager {
 
     const items = container.querySelectorAll(".tm-process-item");
     items.forEach(item => {
-      item.addEventListener("click", (e) => {
+      this.app.addTrackedListener(item, "click", (e) => {
         if (e.target.classList.contains("tm-expand-btn")) return;
 
         this.clearSelection();
@@ -3822,7 +3848,7 @@ class TaskManager {
         this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
       });
 
-      item.addEventListener("dblclick", (e) => {
+      this.app.addTrackedListener(item, "dblclick", (e) => {
         if (e.target.classList.contains("tm-expand-btn")) return;
         const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex);
         const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex) : null;
@@ -3833,7 +3859,7 @@ class TaskManager {
         }
       });
 
-      item.addEventListener("contextmenu", (e) => {
+      this.app.addTrackedListener(item, "contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) return;
@@ -3841,12 +3867,12 @@ class TaskManager {
       });
     });
 
-    container.addEventListener("click", (e) => {
+    this.app.addTrackedListener(container, "click", (e) => {
       if (!e.target.closest('.tm-process-item')) {
         this.clearSelection();
       }
     });
-    container.addEventListener("contextmenu", (e) => {
+    this.app.addTrackedListener(container, "contextmenu", (e) => {
       if (e.target.closest('.tm-process-item')) return;
       e.preventDefault();
       e.stopPropagation();
@@ -3935,8 +3961,8 @@ class TaskManager {
     this.contextMenu.style.left = `${x}px`;
     this.contextMenu.style.top = `${y}px`;
 
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".context-menu")) closeMenu();
+    this.app.addTrackedListener(document, "click", (e) => {
+      if (!e.target.closest(".context-menu")) closeMenu();
     }, { once: true });
   }
 
@@ -3963,8 +3989,8 @@ class TaskManager {
     this.contextMenu.style.left = `${x}px`;
     this.contextMenu.style.top = `${y}px`;
 
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".context-menu")) closeMenu();
+    this.app.addTrackedListener(document, "click", (e) => {
+      if (!e.target.closest(".context-menu")) closeMenu();
     }, { once: true });
   }
 

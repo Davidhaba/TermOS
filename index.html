@@ -29,14 +29,15 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v5.0.0';
+    const ver = 'v5.1.0';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       arrowDown: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 13L12 18L17 13M12 6L12 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       arrowLeft: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11.0001 7L6.00006 12L11.0001 17M18.0001 12L6.00006 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       arrowRight: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 7L18 12L13 17M6 12H18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      enter: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 12h-9m0 0l4 4m-4-4l4-4M19 18v3a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1h12a1 1 0 011 1v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      enter: '<svg fill="none" viewBox="0 0 24 24"><path d="M19 12h-9m0 0l4 4m-4-4l4-4M19 18v3a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1h12a1 1 0 011 1v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      open: '<svg fill="currentColor" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <g fill-rule="evenodd" transform="translate(42.667 42.667)"> <path d="M178.0832,42.6666667 L221.594,77.0716667 L191.217,107.448667 L163.24992,85.3333333 L42.6666667,85.3333333 L42.6666667,296.106667 L82.0209067,170.666667 L341.333333,170.666667 L341.333,170.665667 L384,170.665667 L437.333333,170.666667 L372.583253,384 L-2.13162821e-14,384 L-2.13162821e-14,42.6666667 L178.0832,42.6666667 Z M379.79136,213.333333 L113.354027,213.333333 L73.1874133,341.333333 L340.95808,341.333333 L379.79136,213.333333 Z"></path> <path fill-rule="nonzero" d="M384,7.10542736e-15 L384,149.333333 L341.333333,149.333333 L341.332777,72.836 L264.836777,149.332777 L204.496777,149.333333 L311.162777,42.666 L234.666667,42.6666667 L234.666667,7.10542736e-15 L384,7.10542736e-15 Z"></path> </g> </g></svg>',
       openFile: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M19,19V5H5V19H19M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19M11,8H13V11H16V13H13V16H11V13H8V11H11V8Z"/></svg>',
       openFolder: '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4 4a2 2 0 0 0-2 2v12a2 2 0 0 0 .087.586l2.977-7.937A1 1 0 0 1 6 10h12V9a2 2 0 0 0-2-2h-4.532l-1.9-2.28A2 2 0 0 0 8.032 4H4Zm2.693 8H6.5l-3 8H18l3-8H6.693Z" clip-rule="evenodd"/></svg>',
       openAs: '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M11.403 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6.403a3.01 3.01 0 0 1-1.743-1.612l-3.025 3.025A3 3 0 1 1 9.99 9.768l3.025-3.025A3.01 3.01 0 0 1 11.403 5Z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M13.232 4a1 1 0 0 1 1-1H20a1 1 0 0 1 1 1v5.768a1 1 0 1 1-2 0V6.414l-6.182 6.182a1 1 0 0 1-1.414-1.414L17.586 5h-3.354a1 1 0 0 1-1-1Z" clip-rule="evenodd"/></svg>',
@@ -114,7 +115,7 @@
       }
       async load() {
         const idbData = await this.read();
-        if (idbData !== null) {
+        if (idbData && idbData !== null) {
           return idbData;
         }
         try {
@@ -254,6 +255,38 @@
             type: 'video',
             display: 'WebM Video'
           },
+          'mkv': {
+            type: 'video',
+            display: 'Matroska Video'
+          },
+          'flv': {
+            type: 'video',
+            display: 'Flash Video'
+          },
+          'wmv': {
+            type: 'video',
+            display: 'Windows Media Video'
+          },
+          'm4v': {
+            type: 'video',
+            display: 'M4V Video'
+          },
+          '3gp': {
+            type: 'video',
+            display: '3GP Video'
+          },
+          'ogv': {
+            type: 'video',
+            display: 'Ogg Video'
+          },
+          'ts': {
+            type: 'video',
+            display: 'Transport Stream'
+          },
+          'mts': {
+            type: 'video',
+            display: 'MPEG Transport Stream'
+          },
           'mp3': {
             type: 'audio',
             display: 'MP3 Audio'
@@ -270,6 +303,38 @@
             type: 'audio',
             display: 'M4A Audio'
           },
+          'aac': {
+            type: 'audio',
+            display: 'AAC Audio'
+          },
+          'ogg': {
+            type: 'audio',
+            display: 'Ogg Audio'
+          },
+          'opus': {
+            type: 'audio',
+            display: 'Opus Audio'
+          },
+          'm4b': {
+            type: 'audio',
+            display: 'Audiobook File'
+          },
+          'alac': {
+            type: 'audio',
+            display: 'ALAC Audio'
+          },
+          'aiff': {
+            type: 'audio',
+            display: 'AIFF Audio'
+          },
+          'wma': {
+            type: 'audio',
+            display: 'Windows Media Audio'
+          },
+          'ape': {
+            type: 'audio',
+            display: 'APE Audio'
+          },
           'png': {
             type: 'image',
             display: 'PNG Image'
@@ -285,6 +350,38 @@
           'gif': {
             type: 'image',
             display: 'GIF Image'
+          },
+          'webp': {
+            type: 'image',
+            display: 'WebP Image'
+          },
+          'svg': {
+            type: 'image',
+            display: 'SVG Image'
+          },
+          'bmp': {
+            type: 'image',
+            display: 'Bitmap Image'
+          },
+          'tiff': {
+            type: 'image',
+            display: 'TIFF Image'
+          },
+          'tif': {
+            type: 'image',
+            display: 'TIFF Image'
+          },
+          'ico': {
+            type: 'image',
+            display: 'Icon File'
+          },
+          'heic': {
+            type: 'image',
+            display: 'HEIC Image'
+          },
+          'heif': {
+            type: 'image',
+            display: 'HEIF Image'
           },
           'txt': {
             type: 'text',
@@ -309,6 +406,10 @@
           'json': {
             type: 'text',
             display: 'JSON File'
+          },
+          'ini': {
+            type: 'text',
+            display: 'INI File'
           },
           'js': {
             type: 'executable',
@@ -468,7 +569,7 @@
           if (!dir) {
             const parentDir = this._resolvePath(dirConfig.path);
             if (parentDir && parentDir.type === 'directory') {
-              const newDir = this.createDirectory(dirConfig.name, { isSystem: dirConfig.name === 'bin' });
+              const newDir = this.createDirectory(dirConfig.name, { isSystem: true });
               parentDir.children.push(newDir);
               needsSave = true;
             }
@@ -722,7 +823,7 @@
         }
         return false;
       }
-      rm(fullPath, recursive = false) {
+      rm(fullPath, recursive = false, force = false) {
         if (!fullPath || typeof fullPath !== 'string') {
           throw new Error('Invalid path');
         }
@@ -740,10 +841,10 @@
         const item = (index >= 0 && index < targetDir.children.length) ? targetDir.children[index] : null;
         if (!item) throw new Error("File or directory does not exist");
         if (item.type === 'directory') {
-          if (item.parameters?.isSystem === true) throw new Error("Can't remove system directory");
+          if (item.parameters?.isSystem === true && !force) throw new Error("Can't remove protected system directory");
           if (item.children?.length > 0 && !recursive) return false;
-        } else if (item.parameters?.isSystem === true) {
-          throw new Error("Can't remove system " + (item.type === 'file' ? 'file' : 'item'));
+        } else if (item.parameters?.isSystem === true && !force) {
+          throw new Error("Can't remove protected system " + (item.type === 'file' ? 'file' : 'item'));
         }
         targetDir.children.splice(index, 1);
         this.saveFileSystem();
@@ -843,6 +944,7 @@
         const copy = this._deepCopy(source);
         copy.name = targetName;
         copy.parameters = { ...copy.parameters, isSystem: false };
+        this._setAllChildrenNonSystem(copy);
         targetParent.children.push(copy);
         this.saveFileSystem();
         return true;
@@ -1027,6 +1129,16 @@
           throw new Error('Please check if the zip archive is valid and not corrupted.');
         }
       }
+
+      _setAllChildrenNonSystem(node) {
+        if (node.type === 'directory' && node.children) {
+          node.children.forEach(child => {
+            child.parameters = { ...child.parameters, isSystem: false };
+            this._setAllChildrenNonSystem(child);
+          });
+        }
+      }
+
       _deepCopy(node) {
         const copy = {
           name: node.name,
@@ -1064,6 +1176,10 @@
         this.touchStartY = 0;
         this.touchTimer = null;
         this.isTouchDragging = false;
+        this.lastTapTime = 0;
+        this.lastTapIcon = null;
+        this.lastTouchOpenedIcon = null;
+        this.lastTouchOpenedTime = 0;
         this.desktop = document.createElement('div');
         this.desktop.className = "desktop";
         this.desktop.tabIndex = 0;
@@ -1178,6 +1294,7 @@
         icon.addEventListener('mouseup', (e) => this.handleIconMouseUp(e));
         icon.addEventListener('dblclick', (e) => {
           e.stopPropagation();
+          if (this.shouldSuppressDblClick(icon)) return;
           this.handleDblClick(item);
         });
         icon.addEventListener('contextmenu', (e) => this.showContextMenu(e));
@@ -1186,10 +1303,10 @@
         icon.addEventListener('drop', (e) => this.handleDrop(e, icon));
         icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
 
-        icon.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        icon.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        icon.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        icon.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        icon.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        icon.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        icon.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        icon.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
       }
       getDesktopGridMetrics() {
         const desktopRect = this.desktop.getBoundingClientRect();
@@ -1318,6 +1435,15 @@
         };
         return typeIconMap[type] || icons.file;
       }
+      shouldSuppressDblClick(icon) {
+        const now = Date.now();
+        if (this.lastTouchOpenedIcon === icon && (now - this.lastTouchOpenedTime) <= 500) {
+          this.lastTouchOpenedIcon = null;
+          return true;
+        }
+        return false;
+      }
+
       handleDblClick(item) {
         const isLink = item.type === 'link';
         let path = null;
@@ -1356,20 +1482,34 @@
             this.selectedIcons.add(icon);
             this.lastSelectedIndex = currentIndex;
           } else {
-            const start = Math.min(this.lastSelectedIndex, currentIndex);
-            const end = Math.max(this.lastSelectedIndex, currentIndex);
+            const { rows } = this.getDesktopGridMetrics();
+            const getGridIndex = (ico) => {
+              const col = parseInt(ico.style.gridColumnStart || '1', 10) - 1;
+              const row = parseInt(ico.style.gridRowStart || '1', 10) - 1;
+              return col * rows + row;
+            };
+            const currentGridIndex = getGridIndex(icon);
+            const lastSelectedIcon = icons[this.lastSelectedIndex];
+            const lastGridIndex = getGridIndex(lastSelectedIcon);
+            const start = Math.min(lastGridIndex, currentGridIndex);
+            const end = Math.max(lastGridIndex, currentGridIndex);
             if (e.ctrlKey) {
-              for (let i = start; i <= end; i++) {
-                this.ctrlSelectedIcons.add(icons[i]);
-                this.selectedIcons.add(icons[i]);
-              }
+              icons.forEach(ico => {
+                if (getGridIndex(ico) >= start && getGridIndex(ico) <= end) {
+                  this.ctrlSelectedIcons.add(ico);
+                  this.selectedIcons.add(ico);
+                }
+              });
             } else {
               this.selectedIcons.clear();
               this.ctrlSelectedIcons.forEach(ci => this.selectedIcons.add(ci));
-              for (let i = start; i <= end; i++) {
-                this.selectedIcons.add(icons[i]);
-              }
+              icons.forEach(ico => {
+                if (getGridIndex(ico) >= start && getGridIndex(ico) <= end) {
+                  this.selectedIcons.add(ico);
+                }
+              });
             }
+            this.lastSelectedIndex = currentIndex;
           }
         } else if (e.ctrlKey) {
           if (this.ctrlSelectedIcons.has(icon)) {
@@ -1573,66 +1713,133 @@
           this.draggedIcons = [];
           this.hideGridOverlay();
           this.isTouchDragging = false;
-        } else {
-          this.clearSelection();
-          this.selectedIcons.add(icon);
-          icon.classList.add('selected');
+          this.lastTapTime = 0;
+          this.lastTapIcon = null;
+          return;
         }
+        const currentTapTime = Date.now();
+        const isDoubleTap = this.lastTapIcon === icon && (currentTapTime - this.lastTapTime) <= 350;
+        if (isDoubleTap) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.lastTapTime = 0;
+          this.lastTapIcon = null;
+          this.lastTouchOpenedIcon = icon;
+          this.lastTouchOpenedTime = currentTapTime;
+          this.handleDblClick(JSON.parse(icon.dataset.item));
+          return;
+        }
+        this.lastTapTime = currentTapTime;
+        this.lastTapIcon = icon;
+        this.clearSelection();
+        this.selectedIcons.add(icon);
+        icon.classList.add('selected');
       }
+      createMenuItem(iconHtml, label, className = '', onClick = null, badge = null, disabled = false) {
+        const item = document.createElement('div');
+        item.className = `menu-item ${className}`.trim();
+        if (disabled) item.classList.add('disabled');
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'menu-icon';
+        iconWrapper.innerHTML = iconHtml;
+        const textWrapper = document.createElement('div');
+        textWrapper.className = 'menu-label';
+        textWrapper.textContent = label;
+        item.appendChild(iconWrapper);
+        item.appendChild(textWrapper);
+        if (badge) {
+          const badgeNode = document.createElement('span');
+          badgeNode.className = 'menu-badge';
+          badgeNode.textContent = badge;
+          item.appendChild(badgeNode);
+        }
+        if (onClick && !disabled) {
+          item.addEventListener('click', onClick);
+        }
+        return item;
+      }
+
       showContextMenu(e) {
-        e.preventDefault();
+        e.preventDefault?.();
         e.stopPropagation?.();
         if (this.contextMenu) {
           this.contextMenu.remove();
         }
+
+        const clickedIcon = e.currentTarget;
+        if (!this.selectedIcons.has(clickedIcon)) {
+          this.clearSelection();
+          this.selectedIcons.add(clickedIcon);
+          clickedIcon.classList.add('selected');
+        }
+
+        const selectedItems = Array.from(this.selectedIcons);
+        const selectionCount = selectedItems.length;
+        const single = selectionCount === 1;
+        let mainItem = null;
+        if (single) {
+          mainItem = JSON.parse(selectedItems[0].dataset.item);
+        }
+        const isFolder = single && (mainItem.type === 'directory' || (mainItem.type === 'link' && fileSystem._resolvePath(mainItem.target)?.type === 'directory'));
+        const isLink = single && mainItem.type === 'link';
+
         this.contextMenu = document.createElement('div');
         this.contextMenu.className = 'context-menu';
-        const openOption = document.createElement('div');
-        openOption.className = 'menu-item open';
-        openOption.innerHTML = `${icons.openFile} Open`;
-        openOption.addEventListener('click', () => {
-          this.selectedIcons.forEach(icon => {
-            this.handleDblClick(JSON.parse(icon.dataset.item));
-          });
-          this.closeContextMenu();
-        });
-        const renameOption = document.createElement('div');
-        renameOption.className = 'menu-item rename';
-        renameOption.innerHTML = `${icons.rename} Rename`;
-        renameOption.addEventListener('click', () => {
-          this.renameIcon(Array.from(this.selectedIcons)[0]);
-          this.closeContextMenu();
-        });
-        const deleteOption = document.createElement('div');
-        deleteOption.className = 'menu-item delete';
-        deleteOption.innerHTML = `${icons.delete} Delete`;
-        deleteOption.addEventListener('click', () => {
+
+        const header = document.createElement('div');
+        header.className = 'menu-header';
+        const headerIcon = document.createElement('div');
+        headerIcon.className = 'menu-icon';
+        headerIcon.innerHTML = single ? (isFolder ? icons.folder : (isLink ? icons.shortcut : icons.file)) : icons.shortcut;
+        const headerText = document.createElement('div');
+        headerText.className = 'menu-label';
+        headerText.textContent = single ? `${isFolder ? 'Folder' : 'Item'}: ${mainItem.displayName}` : `${selectionCount} items selected`;
+        header.appendChild(headerIcon);
+        header.appendChild(headerText);
+        this.contextMenu.appendChild(header);
+        let separator = document.createElement('div');
+        separator.className = 'menu-separator';
+        this.contextMenu.appendChild(separator);
+
+        if (single) {
+          const openLabel = isFolder ? 'Open Folder' : 'Open';
+          const openIcon = isFolder ? icons.openFolder : icons.openFile;
+          this.contextMenu.appendChild(this.createMenuItem(openIcon, openLabel, 'open', () => {
+            this.handleDblClick(JSON.parse(selectedItems[0].dataset.item));
+            this.closeContextMenu();
+          }));
+          this.contextMenu.appendChild(this.createMenuItem(icons.rename, 'Rename', 'rename', () => {
+            this.renameIcon(selectedItems[0]);
+            this.closeContextMenu();
+          }));
+        } else {
+          this.contextMenu.appendChild(this.createMenuItem(icons.open, 'Open Selection', 'open', () => {
+            selectedItems.forEach(item => {
+              this.handleDblClick(JSON.parse(item.dataset.item));
+            });
+            this.closeContextMenu();
+          }, selectionCount.toString()));
+        }
+
+        this.contextMenu.appendChild(this.createMenuItem(icons.delete, single ? 'Delete' : 'Delete selection', 'delete', () => {
           this.deleteSelectedIcons();
           this.closeContextMenu();
-        });
-        const refreshOption = document.createElement('div');
-        refreshOption.className = 'menu-item refresh';
-        refreshOption.innerHTML = `${icons.refresh} Refresh`;
-        refreshOption.addEventListener('click', () => {
-          this.refreshDesktop();
-        });
+        }, single ? null : selectionCount.toString()));
 
-        this.contextMenu.appendChild(openOption);
-        this.contextMenu.appendChild(renameOption);
-        this.contextMenu.appendChild(deleteOption);
-        const separator = document.createElement('hr');
-        separator.style.borderColor = 'rgba(0,255,0,0.2)';
+        separator = document.createElement('div');
+        separator.className = 'menu-separator';
         this.contextMenu.appendChild(separator);
-        this.contextMenu.appendChild(refreshOption);
+
+        this.contextMenu.appendChild(this.createMenuItem(icons.refresh, 'Refresh desktop', 'refresh', () => {
+          this.refreshDesktop();
+          this.closeContextMenu();
+        }));
 
         document.body.appendChild(this.contextMenu);
-
-        const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 150));
-        const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 150));
-
+        const x = Math.max(0, Math.min(e.clientX, window.innerWidth - this.contextMenu.offsetWidth));
+        const y = Math.max(0, Math.min(e.clientY, window.innerHeight - this.contextMenu.offsetHeight));
         this.contextMenu.style.left = x + 'px';
         this.contextMenu.style.top = y + 'px';
-
         setTimeout(() => {
           document.addEventListener('click', () => this.closeContextMenu(), { once: true });
         }, 0);
@@ -1752,10 +1959,8 @@
         if (this.contextMenu) {
           this.contextMenu.remove();
         }
-
         this.contextMenu = document.createElement('div');
         this.contextMenu.className = 'context-menu';
-
         const createFolderOption = document.createElement('div');
         createFolderOption.className = 'menu-item';
         createFolderOption.innerHTML = `${icons.newFolder} New Folder`;
@@ -1771,7 +1976,6 @@
           }
           this.closeContextMenu();
         });
-
         const createFileOption = document.createElement('div');
         createFileOption.className = 'menu-item';
         createFileOption.innerHTML = `${icons.newFile} New File`;
@@ -1787,28 +1991,22 @@
           }
           this.closeContextMenu();
         });
-
         const refreshOption = document.createElement('div');
         refreshOption.className = 'menu-item refresh';
         refreshOption.innerHTML = `${icons.refresh} Refresh`;
         refreshOption.addEventListener('click', () => {
           this.refreshDesktop();
         });
-
         this.contextMenu.appendChild(createFolderOption);
         this.contextMenu.appendChild(createFileOption);
         const separator = document.createElement('hr');
         this.contextMenu.appendChild(separator);
         this.contextMenu.appendChild(refreshOption);
-
         document.body.appendChild(this.contextMenu);
-
-        const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 150));
-        const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 150));
-
+        const x = Math.max(0, Math.min(e.clientX, window.innerWidth - this.contextMenu.offsetWidth));
+        const y = Math.max(0, Math.min(e.clientY, window.innerHeight - this.contextMenu.offsetHeight));
         this.contextMenu.style.left = x + 'px';
         this.contextMenu.style.top = y + 'px';
-
         setTimeout(() => {
           document.addEventListener('click', () => this.closeContextMenu(), { once: true });
         }, 0);

@@ -1269,6 +1269,48 @@ html:has(.modal-window.resizing) * {
   color: #ffcc66;
 }
 
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+}
+
+.menu-header .menu-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.menu-header .menu-label {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.menu-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-item.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .sort-controls {
   display: grid;
   grid-template-columns: 1fr calc(25% - 5px) calc(20% + 15px);
