@@ -29,7 +29,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v5.1.0';
+    const ver = 'v5.2.0';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -80,11 +80,14 @@
       taskManager: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="tmGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1"/><stop offset="100%" style="stop-color:#0891b2;stop-opacity:1"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="3" fill="url(#tmGrad)"/><polyline points="5,18 7,13 9,15 11,9 13,12 15,8 17,11 19,6" stroke="#fff" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><circle cx="19" cy="6" r="1" fill="#fbbf24" opacity="0.9"/></svg>',
       unarchive: '<svg fill="currentColor" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <title>unarchive-solid</title> <path d="M18,21a3,3,0,0,1-2.22-1H5V32a2,2,0,0,0,2,2H29a2,2,0,0,0,2-2V20H20.21A3,3,0,0,1,18,21Zm4,3a1,1,0,0,1-1,1H15a1,1,0,0,1,0-2h6A1,1,0,0,1,22,24Z" class="clr-i-solid clr-i-solid-path-1"></path><path d="M15,12H5.5A1.5,1.5,0,0,0,4,13.5V18H15Z" class="clr-i-solid clr-i-solid-path-2"></path><path d="M30.5,12H21v6H32V13.5A1.5,1.5,0,0,0,30.5,12Z" class="clr-i-solid clr-i-solid-path-3"></path><path d="M13,9.55,17,5.6V18a1,1,0,1,0,2,0V5.6l4,3.95a1,1,0,1,0,1.41-1.42L18,1.78,11.61,8.13A1,1,0,0,0,13,9.55Z" class="clr-i-solid clr-i-solid-path-4"></path> <rect x="0" y="0" width="36" height="36" fill-opacity="0"></rect> </g></svg>',
       shortcut: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 7L7 17M9 7H17V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      desktop: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 20H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       cut: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 8C8.65685 8 10 6.65685 10 5C10 3.34315 8.65685 2 7 2C5.34315 2 4 3.34315 4 5C4 6.65685 5.34315 8 7 8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M17 8C18.6569 8 20 6.65685 20 5C20 3.34315 18.6569 2 17 2C15.3431 2 14 3.34315 14 5C14 6.65685 15.3431 8 17 8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 7L14.5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14.5 7L9.5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 22L17 22C18.1046 22 19 21.1046 19 20V18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       paste: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 2H8C6.89543 2 6 2.89543 6 4V5H9C10.1046 5 11 5.89543 11 7V9M16 2H18C19.1046 2 20 2.89543 20 4V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V7C4 5.89543 4.89543 5 6 5H8V4C8 2.89543 8.89543 2 10 2H16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 13H15M9 17H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       openNewWindow: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 5H6C5.44772 5 5 5.44772 5 6V18C5 18.5523 5.44772 19 6 19H18C18.5523 19 19 18.5523 19 18V14M19 5H19.01M19 5V11M19 5H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       listView: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       compactView: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 1C9.65685 1 11 2.34315 11 4V8C11 9.65685 9.65685 11 8 11H4C2.34315 11 1 9.65685 1 8V4C1 2.34315 2.34315 1 4 1H8ZM8 3C8.55228 3 9 3.44772 9 4V8C9 8.55228 8.55228 9 8 9H4C3.44772 9 3 8.55228 3 8V4C3 3.44772 3.44772 3 4 3H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 13C9.65685 13 11 14.3431 11 16V20C11 21.6569 9.65685 23 8 23H4C2.34315 23 1 21.6569 1 20V16C1 14.3431 2.34315 13 4 13H8ZM8 15C8.55228 15 9 15.4477 9 16V20C9 20.5523 8.55228 21 8 21H4C3.44772 21 3 20.5523 3 20V16C3 15.4477 3.44772 15 4 15H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M23 4C23 2.34315 21.6569 1 20 1H16C14.3431 1 13 2.34315 13 4V8C13 9.65685 14.3431 11 16 11H20C21.6569 11 23 9.65685 23 8V4ZM21 4C21 3.44772 20.5523 3 20 3H16C15.4477 3 15 3.44772 15 4V8C15 8.55228 15.4477 9 16 9H20C20.5523 9 21 8.55228 21 8V4Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M20 13C21.6569 13 23 14.3431 23 16V20C23 21.6569 21.6569 23 20 23H16C14.3431 23 13 21.6569 13 20V16C13 14.3431 14.3431 13 16 13H20ZM20 15C20.5523 15 21 15.4477 21 16V20C21 20.5523 20.5523 21 20 21H16C15.4477 21 15 20.5523 15 20V16C15 15.4477 15.4477 15 16 15H20Z" fill="currentColor"></path> </g></svg>',
+      files: '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path fill="currentColor" d="M128 384v448h768V384H128zm-32-64h832a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32zm64-128h704v64H160zm96-128h512v64H256z"></path></g></svg>',
+      apps: '<svg fill="currentColor" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" transform="matrix(-1, 0, 0, 1, 0, 0)"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path d="M 43.6327 20.5937 C 48.0860 20.5937 51.7657 16.9141 51.7657 12.4610 C 51.7657 8.0078 48.1091 4.3281 43.6327 4.3281 C 39.1796 4.3281 35.5233 8.0078 35.5233 12.4610 C 35.5233 16.9141 39.1796 20.5937 43.6327 20.5937 Z M 4.2343 39.1797 C 4.2343 43.1875 4.5858 46.5156 6.9765 48.9063 C 9.3671 51.2969 12.7421 51.6719 16.7499 51.6719 L 34.9608 51.6719 C 38.9452 51.6719 42.3202 51.2969 44.7108 48.9063 C 47.1016 46.5156 47.4529 43.1875 47.4529 39.1797 L 47.4529 23.2188 C 46.4219 23.5703 45.2968 23.7578 44.1249 23.7344 C 43.9608 23.7578 43.8436 23.7578 43.6796 23.7813 L 43.6796 39.8125 C 43.6796 42.2500 43.3749 44.7344 41.9687 46.1641 C 40.5389 47.5703 38.0077 47.8984 35.5936 47.8984 L 16.0936 47.8984 C 13.6796 47.8984 11.1484 47.5703 9.7421 46.1641 C 8.3124 44.7344 8.0077 42.2500 8.0077 39.8125 L 8.0077 20.5703 C 8.0077 18.1094 8.3124 15.5781 9.7187 14.1719 C 11.1484 12.7422 13.7030 12.4375 16.1640 12.4375 L 32.3358 12.4375 C 32.3358 12.2735 32.3593 12.1328 32.3827 11.9922 C 32.3593 10.8203 32.5233 9.6953 32.8984 8.6641 L 16.6796 8.6641 C 12.7421 8.6641 9.3671 9.0391 6.9765 11.4297 C 4.5858 13.8203 4.2343 17.1719 4.2343 21.0859 Z"></path></g></svg>',
     };
     let iDBFS, fileSystem, desktop;
     window.openApplications = [];
@@ -431,12 +434,30 @@
         await fs.ensureRequiredFiles();
         return fs;
       }
+
+      _compareObjects(obj1, obj2, ignoreKeys = []) {
+        const filterObj = (obj) => Object.fromEntries(
+          Object.keys(obj).filter(k => !ignoreKeys.includes(k)).map(k => [k, obj[k]])
+        );
+        const keys1 = Object.keys(filterObj(obj1));
+        const keys2 = Object.keys(filterObj(obj2));
+        if (keys1.length !== keys2.length) return false;
+        return keys1.every(key => {
+          const val1 = obj1[key], val2 = obj2[key];
+          if (val1 instanceof Uint8Array && val2 instanceof Uint8Array) return val1.length === val2.length;
+          if (typeof val1 === 'object' && val1 !== null) {
+            return JSON.stringify(filterObj(val1)) === JSON.stringify(filterObj(val2));
+          }
+          return val1 === val2;
+        });
+      }
+
       ensureRequiredFiles() {
         const requiredDirs = [
           { name: 'home', path: '/' },
           { name: 'bin', path: '/' },
-          { name: 'desktop', path: '/bin' },
-          { name: 'apps', path: '/bin' },
+          { name: 'desktop', path: '/bin', icon: icons.desktop },
+          { name: 'apps', path: '/bin', icon: icons.apps },
         ];
         const requiredFiles = [
           {
@@ -564,47 +585,34 @@
         ]
         let needsSave = false;
         requiredDirs.forEach(dirConfig => {
-          const fullPath = dirConfig.path === '/' ? `/${dirConfig.name}` : `${dirConfig.path}/${dirConfig.name}`;
-          const dir = this._resolvePath(fullPath);
-          if (!dir) {
-            const parentDir = this._resolvePath(dirConfig.path);
-            if (parentDir && parentDir.type === 'directory') {
-              const newDir = this.createDirectory(dirConfig.name, { isSystem: true });
-              parentDir.children.push(newDir);
-              needsSave = true;
-            }
+          const parentDir = this._resolvePath(dirConfig.path);
+          if (!parentDir || parentDir.type !== 'directory') return;
+          const existingDir = parentDir.children.find(f => f.name === dirConfig.name);
+          const dirParams = { isSystem: true };
+          if (dirConfig.icon) dirParams.icon = dirConfig.icon;
+          const newDir = this.createDirectory(dirConfig.name, dirParams);
+          if (!existingDir) {
+            parentDir.children.push(newDir);
+            needsSave = true;
+          } else if (!this._compareObjects(existingDir, newDir, ['children'])) {
+            const index = parentDir.children.indexOf(existingDir);
+            parentDir.children.splice(index, 1, newDir);
+            needsSave = true;
           }
         });
         requiredFiles.forEach(fileConfig => {
           const targetDir = this._resolvePath(fileConfig.path);
           if (targetDir && targetDir.type === 'directory') {
             const existingFile = targetDir.children.find(f => f.name === fileConfig.name);
-            let needsRecreate = false;
+            const fileParams = { isSystem: true };
+            if (fileConfig.icon) fileParams.icon = fileConfig.icon;
+            const newFile = (fileConfig.type && fileConfig.type === "link") ? this.createLink(fileConfig.name, fileConfig.target, fileParams) : this.createFile(fileConfig.name, fileConfig.content, fileParams);
             if (!existingFile) {
-              needsRecreate = true;
-            } else {
-              if (fileConfig.type === "link") {
-                if (existingFile.target !== fileConfig.target) {
-                  needsRecreate = true;
-                }
-              } else {
-                if (existingFile.content !== fileConfig.content) {
-                  needsRecreate = true;
-                }
-              }
-              if (existingFile.parameters?.icon !== fileConfig.icon) {
-                needsRecreate = true;
-              }
-            }
-            if (needsRecreate) {
-              if (existingFile) {
-                const index = targetDir.children.indexOf(existingFile);
-                targetDir.children.splice(index, 1);
-              }
-              const fileParams = { isSystem: true };
-              if (fileConfig.icon) fileParams.icon = fileConfig.icon;
-              const newFile = (fileConfig.type && fileConfig.type === "link") ? this.createLink(fileConfig.name, fileConfig.target, fileParams) : this.createFile(fileConfig.name, fileConfig.content, fileParams);
               targetDir.children.push(newFile);
+              needsSave = true;
+            } else if (!this._compareObjects(existingFile, newFile, ['displayName', 'index', 'desktopPosition'])) {
+              const index = targetDir.children.indexOf(existingFile);
+              targetDir.children.splice(index, 1, newFile);
               needsSave = true;
             }
           }
@@ -903,7 +911,7 @@
         }
         const { targetParent, targetName } = this._resolveTargetPath(targetFullPath);
         if (source.parameters.isSystem === true) {
-          throw new Error(`Can't move system ${source.type === 'file' ? 'file' : 'directory'}`);
+          throw new Error(`Can't move system ${source.type === 'file' ? 'file' : source.type === 'directory' ? 'directory' : 'item'}`);
         }
         if (!targetParent || targetParent.type !== 'directory') {
           throw new Error(`Invalid target path '${targetFullPath}'`);
@@ -1176,10 +1184,13 @@
         this.touchStartY = 0;
         this.touchTimer = null;
         this.isTouchDragging = false;
+        this.pendingTouchContextMenu = null;
+        this.touchTargetIcon = null;
         this.lastTapTime = 0;
         this.lastTapIcon = null;
         this.lastTouchOpenedIcon = null;
         this.lastTouchOpenedTime = 0;
+        this.renamingIconName = null;
         this.desktop = document.createElement('div');
         this.desktop.className = "desktop";
         this.desktop.tabIndex = 0;
@@ -1251,11 +1262,20 @@
           linkBadge.innerHTML = icons.shortcut;
           image.appendChild(linkBadge);
         }
-        const label = document.createElement("div");
-        label.className = "label";
-        label.textContent = item.displayName;
-        label.title = item.displayName;
-        icon.appendChild(label);
+        const isRenaming = this.renamingIconName === item.name;
+        if (isRenaming) {
+          const input = document.createElement("textarea");
+          input.className = "rename-input";
+          input.value = item.displayName;
+          icon.appendChild(input);
+          icon.classList.add('renaming');
+        } else {
+          const label = document.createElement("div");
+          label.className = "label";
+          label.textContent = item.displayName;
+          label.title = item.displayName;
+          icon.appendChild(label);
+        }
         icon.draggable = true;
         let position = item.parameters?.desktopPosition;
         if (!position) {
@@ -1290,6 +1310,63 @@
         }
         this.desktop?.appendChild(icon);
 
+        if (isRenaming) {
+          const renameInput = icon.querySelector('.rename-input');
+          const commitRename = (newValue) => {
+            if (!this.renamingIconName) {
+              this.refreshDesktop();
+              return;
+            }
+            const trimmed = String(newValue || '').trim();
+            if (!trimmed || trimmed === item.displayName) {
+              this.renamingIconName = null;
+              this.refreshDesktop();
+              return;
+            }
+            const [oldName, args] = fileSystem._splitPathAndArgs(this.renamingIconName);
+            const nameWithExt = trimmed + (oldName.endsWith('.app') ? '.app' : '');
+            const [sourcePath, sourceArgs] = fileSystem.getResolvedPath('/bin/desktop', oldName);
+            const [targetPath, targetArgs] = fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
+            try {
+              fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
+            } catch (e) {
+              new Dialog("Error", `Failed to rename`, e.message, "error", ['OK'], 'OK');
+            }
+            this.renamingIconName = null;
+            this.refreshDesktop();
+          };
+          let renameCommittedByEnter = false;
+          renameInput.addEventListener('keydown', (e) => {
+            if (!this.renamingIconName) return;
+            e.stopPropagation();
+            if (e.code === 'Enter') {
+              e.preventDefault();
+              renameCommittedByEnter = true;
+              commitRename(renameInput.value);
+            } else if (e.code === 'Escape') {
+              e.preventDefault();
+              renameCommittedByEnter = true;
+              this.renamingIconName = null;
+              this.refreshDesktop();
+            }
+          });
+          renameInput.addEventListener('blur', () => {
+            if (renameCommittedByEnter) {
+              renameCommittedByEnter = false;
+              return;
+            }
+            commitRename(renameInput.value);
+          });
+          renameInput.addEventListener('click', (e) => e.stopPropagation());
+          renameInput.addEventListener('dblclick', (e) => e.stopPropagation());
+          renameInput.addEventListener('contextmenu', (e) => e.stopPropagation());
+          renameInput.addEventListener('mousedown', (e) => e.stopPropagation());
+          renameInput.addEventListener('mouseup', (e) => e.stopPropagation());
+          renameInput.addEventListener('dragstart', (e) => e.stopPropagation());
+          renameInput.focus();
+          renameInput.select();
+        }
+
         icon.addEventListener('mousedown', (e) => this.handleIconMouseDown(e));
         icon.addEventListener('mouseup', (e) => this.handleIconMouseUp(e));
         icon.addEventListener('dblclick', (e) => {
@@ -1297,16 +1374,11 @@
           if (this.shouldSuppressDblClick(icon)) return;
           this.handleDblClick(item);
         });
-        icon.addEventListener('contextmenu', (e) => this.showContextMenu(e));
         icon.addEventListener('dragstart', (e) => this.handleDragStart(e));
         icon.addEventListener('dragover', (e) => this.handleDragOver(e));
         icon.addEventListener('drop', (e) => this.handleDrop(e, icon));
         icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
 
-        icon.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        icon.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        icon.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        icon.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
       }
       getDesktopGridMetrics() {
         const desktopRect = this.desktop.getBoundingClientRect();
@@ -1624,45 +1696,46 @@
           this.gridOverlay.innerHTML = '';
         }
       }
-      handleTouchStart(e) {
-        e.stopPropagation();
-        const icon = e.currentTarget;
-        const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
-        const currentIndex = icons.indexOf(icon);
+      handleDesktopTouchStart(e) {
+        const icon = e.target.closest('.desktop-icon');
         const touch = e.touches[0];
         this.touchStartX = touch.clientX;
         this.touchStartY = touch.clientY;
         this.isTouchDragging = false;
-        icon.draggable = false;
+        this.touchTargetIcon = icon || null;
+        if (icon) {
+          icon.draggable = false;
+        }
         this.closeContextMenu();
         this.hideGridOverlay();
+        this.pendingTouchContextMenu = false;
+        if (this.touchTimer) {
+          clearTimeout(this.touchTimer);
+        }
         this.touchTimer = setTimeout(() => {
           if (!this.isTouchDragging) {
-            this.showContextMenu({
-              ...e,
-              clientX: touch.clientX,
-              clientY: touch.clientY
-            });
+            this.pendingTouchContextMenu = true;
+            this.showContextMenu(e);
           }
         }, 500);
-
-        if (this.selectedIcons.has(icon)) {
-          this.lastSelectedIndex = currentIndex;
-        } else {
-          this.selectedIcons.clear();
-          this.selectedIcons.add(icon);
-          this.lastSelectedIndex = currentIndex;
-        }
-        this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
-          if (this.selectedIcons.has(i)) {
-            i.classList.add('selected');
+        if (icon) {
+          const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
+          const currentIndex = icons.indexOf(icon);
+          if (this.selectedIcons.has(icon)) {
+            this.lastSelectedIndex = currentIndex;
           } else {
-            i.classList.remove('selected');
+            this.clearSelection();
+            this.selectedIcons.add(icon);
+            this.lastSelectedIndex = currentIndex;
           }
-        });
-        this.draggedIcon = icon;
+          this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
+            i.classList.toggle('selected', this.selectedIcons.has(i));
+          });
+          this.draggedIcon = icon;
+        }
       }
-      handleTouchMove(e) {
+      handleDesktopTouchMove(e) {
+        if (!this.touchTimer && !this.isTouchDragging) return;
         const touch = e.touches[0];
         const dx = touch.clientX - this.touchStartX;
         const dy = touch.clientY - this.touchStartY;
@@ -1699,9 +1772,11 @@
           });
         }
       }
-      handleTouchEnd(e) {
-        const icon = e.currentTarget;
-        icon.draggable = true;
+      handleDesktopTouchEnd(e) {
+        const icon = this.touchTargetIcon;
+        if (icon) {
+          icon.draggable = true;
+        }
         if (this.touchTimer) {
           clearTimeout(this.touchTimer);
           this.touchTimer = null;
@@ -1715,50 +1790,31 @@
           this.isTouchDragging = false;
           this.lastTapTime = 0;
           this.lastTapIcon = null;
+          this.touchTargetIcon = null;
           return;
         }
-        const currentTapTime = Date.now();
-        const isDoubleTap = this.lastTapIcon === icon && (currentTapTime - this.lastTapTime) <= 350;
-        if (isDoubleTap) {
-          e.preventDefault();
-          e.stopPropagation();
-          this.lastTapTime = 0;
-          this.lastTapIcon = null;
-          this.lastTouchOpenedIcon = icon;
-          this.lastTouchOpenedTime = currentTapTime;
-          this.handleDblClick(JSON.parse(icon.dataset.item));
-          return;
+        if (icon) {
+          const currentTapTime = Date.now();
+          const isDoubleTap = this.lastTapIcon === icon && (currentTapTime - this.lastTapTime) <= 350;
+          if (isDoubleTap) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.lastTapTime = 0;
+            this.lastTapIcon = null;
+            this.lastTouchOpenedIcon = icon;
+            this.lastTouchOpenedTime = currentTapTime;
+            this.handleDblClick(JSON.parse(icon.dataset.item));
+            this.touchTargetIcon = null;
+            return;
+          }
+          this.lastTapTime = currentTapTime;
+          this.lastTapIcon = icon;
+          this.clearSelection();
+          this.selectedIcons.add(icon);
+          icon.classList.add('selected');
         }
-        this.lastTapTime = currentTapTime;
-        this.lastTapIcon = icon;
-        this.clearSelection();
-        this.selectedIcons.add(icon);
-        icon.classList.add('selected');
+        this.touchTargetIcon = null;
       }
-      createMenuItem(iconHtml, label, className = '', onClick = null, badge = null, disabled = false) {
-        const item = document.createElement('div');
-        item.className = `menu-item ${className}`.trim();
-        if (disabled) item.classList.add('disabled');
-        const iconWrapper = document.createElement('div');
-        iconWrapper.className = 'menu-icon';
-        iconWrapper.innerHTML = iconHtml;
-        const textWrapper = document.createElement('div');
-        textWrapper.className = 'menu-label';
-        textWrapper.textContent = label;
-        item.appendChild(iconWrapper);
-        item.appendChild(textWrapper);
-        if (badge) {
-          const badgeNode = document.createElement('span');
-          badgeNode.className = 'menu-badge';
-          badgeNode.textContent = badge;
-          item.appendChild(badgeNode);
-        }
-        if (onClick && !disabled) {
-          item.addEventListener('click', onClick);
-        }
-        return item;
-      }
-
       showContextMenu(e) {
         e.preventDefault?.();
         e.stopPropagation?.();
@@ -1766,80 +1822,174 @@
           this.contextMenu.remove();
         }
 
-        const clickedIcon = e.currentTarget;
-        if (!this.selectedIcons.has(clickedIcon)) {
+        const clickedIcon = e.target.closest('.desktop-icon');
+        if (clickedIcon && !this.selectedIcons.has(clickedIcon)) {
           this.clearSelection();
           this.selectedIcons.add(clickedIcon);
           clickedIcon.classList.add('selected');
         }
 
+        const isDesktopTarget = !clickedIcon;
         const selectedItems = Array.from(this.selectedIcons);
         const selectionCount = selectedItems.length;
-        const single = selectionCount === 1;
+        const single = !isDesktopTarget && selectionCount === 1;
         let mainItem = null;
         if (single) {
           mainItem = JSON.parse(selectedItems[0].dataset.item);
         }
         const isFolder = single && (mainItem.type === 'directory' || (mainItem.type === 'link' && fileSystem._resolvePath(mainItem.target)?.type === 'directory'));
         const isLink = single && mainItem.type === 'link';
+        const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
+        const hasClipboard = clipboardData && clipboardData.paths && clipboardData.paths.length > 0;
 
-        this.contextMenu = document.createElement('div');
-        this.contextMenu.className = 'context-menu';
+        const items = [];
 
-        const header = document.createElement('div');
-        header.className = 'menu-header';
-        const headerIcon = document.createElement('div');
-        headerIcon.className = 'menu-icon';
-        headerIcon.innerHTML = single ? (isFolder ? icons.folder : (isLink ? icons.shortcut : icons.file)) : icons.shortcut;
-        const headerText = document.createElement('div');
-        headerText.className = 'menu-label';
-        headerText.textContent = single ? `${isFolder ? 'Folder' : 'Item'}: ${mainItem.displayName}` : `${selectionCount} items selected`;
-        header.appendChild(headerIcon);
-        header.appendChild(headerText);
-        this.contextMenu.appendChild(header);
-        let separator = document.createElement('div');
-        separator.className = 'menu-separator';
-        this.contextMenu.appendChild(separator);
-
-        if (single) {
-          const openLabel = isFolder ? 'Open Folder' : 'Open';
-          const openIcon = isFolder ? icons.openFolder : icons.openFile;
-          this.contextMenu.appendChild(this.createMenuItem(openIcon, openLabel, 'open', () => {
-            this.handleDblClick(JSON.parse(selectedItems[0].dataset.item));
-            this.closeContextMenu();
-          }));
-          this.contextMenu.appendChild(this.createMenuItem(icons.rename, 'Rename', 'rename', () => {
-            this.renameIcon(selectedItems[0]);
-            this.closeContextMenu();
-          }));
-        } else {
-          this.contextMenu.appendChild(this.createMenuItem(icons.open, 'Open Selection', 'open', () => {
-            selectedItems.forEach(item => {
-              this.handleDblClick(JSON.parse(item.dataset.item));
+        if (isDesktopTarget) {
+          if (hasClipboard) {
+            items.push({
+              iconHtml: icons.paste,
+              label: 'Paste',
+              className: 'paste',
+              onClick: () => {
+                this.pasteSelectedIcons();
+                this.closeContextMenu();
+              }
             });
-            this.closeContextMenu();
-          }, selectionCount.toString()));
+            items.push({ isSeparator: true });
+          }
+          items.push({
+            iconHtml: icons.newFolder,
+            label: 'New Folder',
+            className: 'new-folder',
+            onClick: () => {
+              let newName = "New Folder";
+              let counter = 0;
+              const files = fileSystem.ls('/bin/desktop');
+              while (files.some(item => item.name === newName)) {
+                counter++;
+                newName = `New Folder (${counter})`;
+              }
+              try {
+                fileSystem.mkdir('/bin/desktop', newName);
+                this.renamingIconName = newName;
+                this.refreshDesktop();
+              } catch (error) {
+                new Dialog('Error', 'Failed to create folder', error.message, 'error', ['OK'], 'OK');
+              }
+              this.closeContextMenu();
+            }
+          });
+          items.push({
+            iconHtml: icons.newFile,
+            label: 'New File',
+            className: 'new-file',
+            onClick: () => {
+              let newName = "New File.txt";
+              let counter = 0;
+              const files = fileSystem.ls('/bin/desktop');
+              while (files.some(item => item.name === newName)) {
+                counter++;
+                newName = `New File (${counter}).txt`;
+              }
+              try {
+                fileSystem.touch('/bin/desktop', newName);
+                this.renamingIconName = newName;
+                this.refreshDesktop();
+              } catch (error) {
+                new Dialog('Error', 'Failed to create file', error.message, 'error', ['OK'], 'OK');
+              }
+              this.closeContextMenu();
+            }
+          });
+          items.push({
+            iconHtml: icons.copy,
+            label: 'Copy Path',
+            className: 'copyPath',
+            onClick: () => {
+              this.copyCurrentDesktopPath();
+              this.closeContextMenu();
+            }
+          });
+          items.push({ isSeparator: true });
+          items.push({
+            iconHtml: icons.refresh,
+            label: 'Refresh',
+            className: 'refresh',
+            onClick: () => {
+              this.refreshDesktop();
+              this.closeContextMenu();
+            }
+          });
+        } else {
+          const openLabel = isFolder ? 'Open Folder' : 'Open File';
+          const openIcon = isFolder ? icons.openFolder : single ? icons.openFile : icons.open;
+          items.push({
+            iconHtml: openIcon,
+            label: openLabel,
+            className: 'open',
+            onClick: () => {
+              selectedItems.forEach(item => this.handleDblClick(JSON.parse(item.dataset.item)));
+              this.closeContextMenu();
+            }
+          });
+          items.push({
+            iconHtml: icons.copy,
+            label: 'Copy',
+            className: 'copy',
+            onClick: () => {
+              this.copySelectedIcons();
+              this.closeContextMenu();
+            }
+          });
+          items.push({
+            iconHtml: icons.cut,
+            label: 'Cut',
+            className: 'cut',
+            onClick: () => {
+              this.cutSelectedIcons();
+              this.closeContextMenu();
+            }
+          });
+          items.push({
+            iconHtml: icons.copy,
+            label: `Copy Path${selectionCount > 1 ? 's' : ''}`,
+            className: 'copyPath',
+            onClick: () => {
+              this.copySelectedIconPaths();
+              this.closeContextMenu();
+            }
+          });
+          if (single) {
+            items.push({
+              iconHtml: icons.rename,
+              label: 'Rename',
+              className: 'rename',
+              onClick: () => {
+                this.renameIcon(selectedItems[0]);
+                this.closeContextMenu();
+              }
+            });
+          }
+          items.push({
+            iconHtml: icons.delete,
+            label: 'Delete',
+            className: 'delete',
+            onClick: () => {
+              this.deleteSelectedIcons();
+              this.closeContextMenu();
+            }
+          });
         }
 
-        this.contextMenu.appendChild(this.createMenuItem(icons.delete, single ? 'Delete' : 'Delete selection', 'delete', () => {
-          this.deleteSelectedIcons();
-          this.closeContextMenu();
-        }, single ? null : selectionCount.toString()));
+        this.contextMenu = ContextMenuBuilder.renderMenu({
+          event: e,
+          headerIconHtml: isDesktopTarget ? icons.desktop : (single ? (isFolder ? icons.folder : (isLink ? icons.shortcut : this.getIconForFileType(fileSystem.getFileType(mainItem.name).type))) : icons.files),
+          headerLabelText: isDesktopTarget ? 'Desktop' : (single ? mainItem.displayName : 'Selected items'),
+          headerBadge: (!isDesktopTarget && !single) ? selectionCount.toString() : '',
+          items,
+          appendTo: document.body
+        });
 
-        separator = document.createElement('div');
-        separator.className = 'menu-separator';
-        this.contextMenu.appendChild(separator);
-
-        this.contextMenu.appendChild(this.createMenuItem(icons.refresh, 'Refresh desktop', 'refresh', () => {
-          this.refreshDesktop();
-          this.closeContextMenu();
-        }));
-
-        document.body.appendChild(this.contextMenu);
-        const x = Math.max(0, Math.min(e.clientX, window.innerWidth - this.contextMenu.offsetWidth));
-        const y = Math.max(0, Math.min(e.clientY, window.innerHeight - this.contextMenu.offsetHeight));
-        this.contextMenu.style.left = x + 'px';
-        this.contextMenu.style.top = y + 'px';
         setTimeout(() => {
           document.addEventListener('click', () => this.closeContextMenu(), { once: true });
         }, 0);
@@ -1849,6 +1999,84 @@
         this.loadDesktopShortcuts();
         this.closeContextMenu();
       }
+      getDesktopSelectedPaths() {
+        return Array.from(this.selectedIcons).map(icon => {
+          const shortcut = JSON.parse(icon.dataset.item);
+          return fileSystem.getResolvedPath('/bin/desktop', shortcut.name)[0];
+        });
+      }
+      copySelectedIcons() {
+        const paths = this.getDesktopSelectedPaths();
+        if (paths.length === 0) return;
+        const clipboardData = { type: 'copy', paths, source: '/bin/desktop' };
+        StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
+      }
+      cutSelectedIcons() {
+        const paths = this.getDesktopSelectedPaths();
+        if (paths.length === 0) return;
+        const clipboardData = { type: 'cut', paths, source: '/bin/desktop' };
+        StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
+      }
+      async pasteSelectedIcons() {
+        const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
+        if (!clipboardData || !clipboardData.paths || clipboardData.paths.length === 0) return;
+        const { type, paths } = clipboardData;
+        const errors = [];
+        const successes = [];
+
+        for (const sourcePath of paths) {
+          const fileName = sourcePath.split('/').pop();
+          try {
+            const targetPath = fileSystem.getResolvedPath('/bin/desktop', fileName)[0];
+            if (sourcePath === targetPath) {
+              if (type === 'cut') {
+                successes.push(fileName);
+                continue;
+              }
+              throw new Error('Source and destination are the same');
+            }
+            if (type === 'copy') {
+              fileSystem.cp(sourcePath, targetPath);
+            } else if (type === 'cut') {
+              fileSystem.mv(sourcePath, targetPath);
+            }
+            successes.push(fileName);
+          } catch (e) {
+            errors.push({ file: fileName, error: e.message });
+          }
+        }
+
+        if (type === 'cut' && successes.length === paths.length) {
+          StorageManager.removeItem('fileExplorerClipboard');
+        }
+
+        if (errors.length > 0) {
+          const errorList = errors.map(e => `<br>• ${e.file}: ${e.error}`).join('\n');
+          new Dialog('Desktop - Paste Errors', `${successes.length} of ${paths.length} items pasted successfully.`, `Errors:${errorList}`, 'warning', ['Ok'], 'Ok');
+        }
+        this.refreshDesktop();
+      }
+      copySelectedIconPaths() {
+        const paths = this.getDesktopSelectedPaths();
+        if (paths.length === 0) return;
+        copyText(paths.join('\n'));
+      }
+      copyCurrentDesktopPath() {
+        copyText('/bin/desktop');
+      }
+      renderContextMenuAtEvent(e) {
+        document.body.appendChild(this.contextMenu);
+        const touchPoint = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+        const clientX = typeof e.clientX === 'number' ? e.clientX : (touchPoint ? touchPoint.clientX : window.innerWidth / 2);
+        const clientY = typeof e.clientY === 'number' ? e.clientY : (touchPoint ? touchPoint.clientY : window.innerHeight / 2);
+        const x = Math.max(0, Math.min(clientX, window.innerWidth - this.contextMenu.offsetWidth));
+        const y = Math.max(0, Math.min(clientY, window.innerHeight - this.contextMenu.offsetHeight));
+        this.contextMenu.style.left = x + 'px';
+        this.contextMenu.style.top = y + 'px';
+        setTimeout(() => {
+          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
+        }, 0);
+      }
       closeContextMenu() {
         if (this.contextMenu) {
           this.contextMenu.remove();
@@ -1857,26 +2085,10 @@
       }
       renameIcon(icon) {
         if (!icon) return;
-        const label = icon.querySelector('.label');
-        const currentName = label.textContent;
-        const newName = prompt('Enter new name:', currentName)?.trim();
-        if (newName) {
-          const shortcut = JSON.parse(icon.dataset.item);
-          const [name, args] = fileSystem._splitPathAndArgs(shortcut.name);
-          const nameWithExt = newName + (name.endsWith('.app') ? '.app' : '');
-          const [sourcePath, sourceArgs] = fileSystem.getResolvedPath('/bin/desktop', name);
-          const [targetPath, targetArgs] = fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
-          try {
-            fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
-          } catch (e) {
-            new Dialog("Error", `Failed to rename '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
-            return;
-          }
-          shortcut.displayName = newName;
-          shortcut.name = nameWithExt;
-          icon.remove();
-          this.refreshDesktop();
-        }
+        const shortcut = JSON.parse(icon.dataset.item);
+        if (!shortcut) return;
+        this.renamingIconName = shortcut.name;
+        this.refreshDesktop();
       }
       clearSelection() {
         this.desktop.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
@@ -1901,11 +2113,20 @@
           if (e.target === this.desktop) this.handleDrop(e, null);
         });
 
+        this.desktop.addEventListener('touchstart', (e) => this.handleDesktopTouchStart(e), { passive: false });
+        this.desktop.addEventListener('touchmove', (e) => this.handleDesktopTouchMove(e), { passive: false });
+        this.desktop.addEventListener('touchend', (e) => this.handleDesktopTouchEnd(e), { passive: false });
+        this.desktop.addEventListener('touchcancel', (e) => this.handleDesktopTouchEnd(e), { passive: false });
+
         this.desktop.addEventListener('contextmenu', (e) => {
-          if (e.target === this.desktop) {
+          if (this.pendingTouchContextMenu) {
             e.preventDefault();
-            this.showDesktopContextMenu(e);
+            e.stopPropagation();
+            this.pendingTouchContextMenu = false;
+            return;
           }
+          e.preventDefault();
+          this.showContextMenu(e);
         });
 
         this.desktop.addEventListener('keydown', () => {
@@ -1954,62 +2175,6 @@
             new Dialog("Error", `Failed to delete '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
           }
         });
-      }
-      showDesktopContextMenu(e) {
-        if (this.contextMenu) {
-          this.contextMenu.remove();
-        }
-        this.contextMenu = document.createElement('div');
-        this.contextMenu.className = 'context-menu';
-        const createFolderOption = document.createElement('div');
-        createFolderOption.className = 'menu-item';
-        createFolderOption.innerHTML = `${icons.newFolder} New Folder`;
-        createFolderOption.addEventListener('click', () => {
-          const folderName = prompt('Enter folder name:')?.trim();
-          if (folderName) {
-            try {
-              fileSystem.mkdir('/bin/desktop', folderName);
-              this.refreshDesktop();
-            } catch (e) {
-              new Dialog("Error", "Failed to create folder", e.message, "error", ['OK'], 'OK');
-            }
-          }
-          this.closeContextMenu();
-        });
-        const createFileOption = document.createElement('div');
-        createFileOption.className = 'menu-item';
-        createFileOption.innerHTML = `${icons.newFile} New File`;
-        createFileOption.addEventListener('click', () => {
-          const fileName = prompt('Enter file name:')?.trim();
-          if (fileName) {
-            try {
-              fileSystem.touch('/bin/desktop', fileName);
-              this.refreshDesktop();
-            } catch (e) {
-              new Dialog("Error", "Failed to create file", e.message, "error", ['OK'], 'OK');
-            }
-          }
-          this.closeContextMenu();
-        });
-        const refreshOption = document.createElement('div');
-        refreshOption.className = 'menu-item refresh';
-        refreshOption.innerHTML = `${icons.refresh} Refresh`;
-        refreshOption.addEventListener('click', () => {
-          this.refreshDesktop();
-        });
-        this.contextMenu.appendChild(createFolderOption);
-        this.contextMenu.appendChild(createFileOption);
-        const separator = document.createElement('hr');
-        this.contextMenu.appendChild(separator);
-        this.contextMenu.appendChild(refreshOption);
-        document.body.appendChild(this.contextMenu);
-        const x = Math.max(0, Math.min(e.clientX, window.innerWidth - this.contextMenu.offsetWidth));
-        const y = Math.max(0, Math.min(e.clientY, window.innerHeight - this.contextMenu.offsetHeight));
-        this.contextMenu.style.left = x + 'px';
-        this.contextMenu.style.top = y + 'px';
-        setTimeout(() => {
-          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
-        }, 0);
       }
     }
   </script>

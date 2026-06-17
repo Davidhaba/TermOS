@@ -42,6 +42,105 @@ const StorageManager = (() => {
   };
 })();
 
+class ContextMenuBuilder {
+  static createMenuItem(iconHtml, label, className = '', onClick = null, badge = null, disabled = false) {
+    const item = document.createElement('div');
+    item.className = `menu-item ${className}`.trim();
+    if (disabled) item.classList.add('disabled');
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'menu-icon';
+    iconWrapper.innerHTML = iconHtml;
+    const textWrapper = document.createElement('div');
+    textWrapper.className = 'menu-label';
+    textWrapper.textContent = label;
+    item.appendChild(iconWrapper);
+    item.appendChild(textWrapper);
+    if (badge) {
+      const badgeNode = document.createElement('span');
+      badgeNode.className = 'menu-badge';
+      badgeNode.textContent = badge;
+      item.appendChild(badgeNode);
+    }
+    if (onClick && !disabled) {
+      item.addEventListener('click', onClick);
+    }
+    return item;
+  }
+
+  static createSeparator() {
+    const separator = document.createElement('div');
+    separator.className = 'menu-separator';
+    return separator;
+  }
+
+  static getEventPoint(e) {
+    const touchPoint = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    return {
+      pageX: typeof e.pageX === 'number' ? e.pageX : touchPoint ? touchPoint.pageX : window.innerWidth / 2,
+      pageY: typeof e.pageY === 'number' ? e.pageY : touchPoint ? touchPoint.pageY : window.innerHeight / 2,
+      clientX: typeof e.clientX === 'number' ? e.clientX : touchPoint ? touchPoint.clientX : window.innerWidth / 2,
+      clientY: typeof e.clientY === 'number' ? e.clientY : touchPoint ? touchPoint.clientY : window.innerHeight / 2
+    };
+  }
+
+  static positionMenuAtEvent(menu, event, containerRect = null) {
+    const { pageX, pageY, clientX, clientY } = ContextMenuBuilder.getEventPoint(event);
+    if (containerRect) {
+      const x = Math.max(10, Math.min(pageX - window.scrollX - containerRect.left, containerRect.width - menu.offsetWidth));
+      const y = Math.max(10, Math.min(pageY - window.scrollY - containerRect.top, containerRect.height - menu.offsetHeight));
+      menu.style.left = `${x}px`;
+      menu.style.top = `${y}px`;
+    } else {
+      const x = Math.max(0, Math.min(clientX, window.innerWidth - menu.offsetWidth));
+      const y = Math.max(0, Math.min(clientY, window.innerHeight - menu.offsetHeight));
+      menu.style.left = `${x}px`;
+      menu.style.top = `${y}px`;
+    }
+  }
+
+  static renderMenu({ event, headerIconHtml = '', headerLabelText = '', headerBadge = '', items = [], appendTo = document.body, containerRect = null }) {
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+
+    if (headerIconHtml || headerLabelText) {
+      const header = document.createElement('div');
+      header.className = 'menu-header';
+      if (headerIconHtml) {
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'menu-icon';
+        iconWrapper.innerHTML = headerIconHtml;
+        header.appendChild(iconWrapper);
+      }
+      if (headerLabelText) {
+        const labelWrapper = document.createElement('div');
+        labelWrapper.className = 'menu-label';
+        labelWrapper.textContent = headerLabelText;
+        header.appendChild(labelWrapper);
+      }
+      if (headerBadge) {
+        const badgeNode = document.createElement('span');
+        badgeNode.className = 'menu-badge';
+        badgeNode.textContent = headerBadge;
+        header.appendChild(badgeNode);
+      }
+      menu.appendChild(header);
+      menu.appendChild(ContextMenuBuilder.createSeparator());
+    }
+
+    items.forEach(item => {
+      if (item.isSeparator) {
+        menu.appendChild(ContextMenuBuilder.createSeparator());
+      } else {
+        menu.appendChild(ContextMenuBuilder.createMenuItem(item.iconHtml, item.label, item.className, item.onClick, item.badge, item.disabled));
+      }
+    });
+
+    appendTo.appendChild(menu);
+    ContextMenuBuilder.positionMenuAtEvent(menu, event, containerRect);
+    return menu;
+  }
+}
+
 class Modal {
   constructor(title = "Info") {
     this.appName = title;
@@ -2300,7 +2399,7 @@ class FileExplorer {
             fileSystem.getResolvedPath(this.context.path, oldName)[0],
             fileSystem.getResolvedPath(this.context.path, trimmed)[0]
           );
-          this.selectedItems.delete(oldName);
+          this.selectedItems.clear();
           this.selectedItems.add(trimmed);
         } catch (e) {
           new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
@@ -2310,7 +2409,7 @@ class FileExplorer {
       };
       let renameCommittedByEnter = false;
       this.app.addTrackedListener(renameInput, 'keydown', (e) => {
-        if (!this.renamingItem || this.selectedItem !== this.renamingItem) return;
+        if (!this.renamingItem) return;
         e.stopPropagation();
         if (e.code === 'Enter') {
           e.preventDefault();
@@ -2333,6 +2432,7 @@ class FileExplorer {
         commitRename(renameInput.value);
       });
       this.app.addTrackedListener(renameInput, 'click', (e) => {
+        e.stopPropagation();
       });
       this.app.addTrackedListener(renameInput, 'dblclick', (e) => {
         e.stopPropagation();
@@ -2346,8 +2446,9 @@ class FileExplorer {
     this.updateBreadcrumb();
     this.updateStatusBar();
   }
-  getFileIcon(f) {
-    if (f.parameters?.icon) return f.parameters.icon;
+
+  getFileIcon(f, parIco = true) {
+    if (parIco && f.parameters?.icon) return f.parameters.icon;
     if (f.type === "directory" && icons.folder) return icons.folder;
     if (f.type === "file") {
       let fileType = fileSystem.getFileType(f.name).type;
@@ -2387,173 +2488,172 @@ class FileExplorer {
     const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
     const hasClipboard = clipboardData && clipboardData.paths && clipboardData.paths.length > 0;
 
-    this.contextMenu = document.createElement("div");
-    this.contextMenu.className = "context-menu";
-    let html = "";
+    const selectionCount = selectedFiles.length;
+    const hasSelection = selectionCount > 0;
+    const headerIconHtml = selectionCount === 1
+      ? this.getFileIcon(selectedFiles[0], false)
+      : selectionCount > 1 ? icons.files : icons.explorer;
+    const headerLabelText = selectionCount === 1 ? selectedFiles[0].name
+      : (selectionCount > 1 ? 'Selected items' : 'File Explorer');
 
-    if (selectedFiles.length > 0) {
-      const isSingleSelection = selectedFiles.length === 1;
+    const items = [];
+
+    if (hasSelection) {
+      const isSingleSelection = selectionCount === 1;
       const firstFile = selectedFiles[0];
       const isArchive = firstFile.type === 'file' && fileSystem.getFileType(firstFile.name).type === "archive";
 
       if (isSingleSelection) {
         if (firstFile.type === "file") {
-          html += `<div class="menu-item open">${icons.openFile}Open file</div>`;
-          html += `<div class="menu-item open-as">${icons.openAs}Open as</div>`;
-          html += `<hr class="menu-separator">`;
+          items.push({
+            iconHtml: icons.openFile,
+            label: 'Open file',
+            className: 'open',
+            onClick: () => {
+              this.openSelected(selectedFiles, savedPath, selectedFiles.map(f => f.name));
+            }
+          });
+          items.push({
+            iconHtml: icons.openAs,
+            label: 'Open as',
+            className: 'open-as',
+            onClick: () => {
+              this.openAsSelected(firstFile, savedPath, firstFile.name);
+              this.clearSelection();
+            }
+          });
+          items.push({ isSeparator: true });
         } else if (firstFile.type === "directory") {
-          html += `<div class="menu-item open">${icons.openFolder}Open Folder</div>`;
-          html += `<div class="menu-item open-new-window">${icons.openNewWindow}Open in New Window</div>`;
-          html += `<hr class="menu-separator">`;
+          items.push({
+            iconHtml: icons.openFolder,
+            label: 'Open Folder',
+            className: 'open',
+            onClick: () => {
+              this.openSelected(selectedFiles, savedPath, selectedFiles.map(f => f.name));
+            }
+          });
+          items.push({
+            iconHtml: icons.openNewWindow,
+            label: 'Open in New Window',
+            className: 'open-new-window',
+            onClick: () => {
+              new FileExplorer(null, fileSystem.getResolvedPath(savedPath, firstFile.name)[0]);
+            }
+          });
+          items.push({ isSeparator: true });
         }
+      } else {
+        items.push({
+          iconHtml: icons.open,
+          label: 'Open',
+          className: 'open',
+          onClick: () => {
+            this.openSelected(selectedFiles, savedPath, selectedFiles.map(f => f.name));
+          }
+        });
       }
 
-      html += `<div class="menu-item copy">${icons.copy}Copy</div>`;
-      html += `<div class="menu-item cut">${icons.cut}Cut</div>`;
+      items.push({
+        iconHtml: icons.copy,
+        label: 'Copy',
+        className: 'copy',
+        onClick: () => this.copySelected()
+      });
+      items.push({
+        iconHtml: icons.cut,
+        label: 'Cut',
+        className: 'cut',
+        onClick: () => this.cutSelected()
+      });
       if (hasClipboard) {
-        html += `<div class="menu-item paste">${icons.paste}Paste</div>`;
+        items.push({
+          iconHtml: icons.paste,
+          label: 'Paste',
+          className: 'paste',
+          onClick: () => this.pasteSelected()
+        });
       }
-      html += `<div class="menu-item copyPath">${icons.copy}Copy ${selectedFiles.length > 1 ? `Paths (${selectedFiles.length})` : 'File Path'}</div>`;
-      html += `<hr class="menu-separator">`;
-
-      if (isSingleSelection) {
-        html += `<div class="menu-item rename">${icons.rename}Rename</div>`;
-        if (isArchive) {
-          html += `<div class="menu-item unarchive">${icons.unarchive}Unarchive</div>`;
-        }
-      }
-      html += `<div class="menu-item delete">${icons.delete}Delete${selectedFiles.length > 1 ? ` (${selectedFiles.length})` : ''}</div>`;
-    } else {
-      if (hasClipboard) {
-        html += `<div class="menu-item paste">${icons.paste}Paste</div>`;
-        html += `<hr class="menu-separator">`;
-      }
-      html += `<div class="menu-item new-folder">${icons.newFolder}New Folder</div>`;
-      html += `<div class="menu-item new-file">${icons.newFile}New File</div>`;
-      html += `<hr class="menu-separator">`;
-      html += `<div class="menu-item copyPath">${icons.copy}Copy Current Path</div>`;
-      html += `<div class="menu-item refresh">${icons.refresh}Refresh</div>`;
-    }
-    this.contextMenu.innerHTML = html;
-
-    if (selectedFiles.length > 0) {
-      const openBtn = this.contextMenu.querySelector(".open");
-      if (openBtn) {
-        openBtn.onclick = () => {
-          this.openSelected(selectedFiles, savedPath, selectedFiles.map(f => f.name));
-        };
-      }
-      if (selectedFiles[0].type === "file") {
-        const openAsBtn = this.contextMenu.querySelector(".open-as");
-        if (openAsBtn) {
-          openAsBtn.onclick = () => {
-            this.openAsSelected(selectedFiles[0], savedPath, selectedFiles[0].name);
-            this.clearSelection();
-          };
-        }
-      } else if (selectedFiles[0].type === "directory") {
-        const openNewWindowBtn = this.contextMenu.querySelector(".open-new-window");
-        if (openNewWindowBtn) {
-          openNewWindowBtn.onclick = () => {
-            new FileExplorer(null, fileSystem.getResolvedPath(savedPath, selectedFiles[0].name)[0]);
-          };
-        }
-      }
-      const copyBtn = this.contextMenu.querySelector(".copy");
-      if (copyBtn) {
-        copyBtn.onclick = () => {
-          this.copySelected();
-        };
-      }
-      const cutBtn = this.contextMenu.querySelector(".cut");
-      if (cutBtn) {
-        cutBtn.onclick = () => {
-          this.cutSelected();
-        };
-      }
-      const pasteBtn = this.contextMenu.querySelector(".paste");
-      if (pasteBtn) {
-        pasteBtn.onclick = () => {
-          this.pasteSelected();
-        };
-      }
-      const renameBtn = this.contextMenu.querySelector(".rename");
-      if (renameBtn) {
-        renameBtn.onclick = () => {
-          this.renameSelected(selectedFiles[0], savedPath, selectedFiles[0].name);
-        };
-      }
-      const unArchiveEl = this.contextMenu.querySelector(".unarchive");
-      if (unArchiveEl) {
-        unArchiveEl.onclick = async () => {
-          this.unarchiveFile(selectedFiles[0], savedPath);
-        };
-      }
-      const deleteBtn = this.contextMenu.querySelector(".delete");
-      if (deleteBtn) {
-        deleteBtn.onclick = async () => {
-          await this.deleteSelectedMultiple(selectedFiles, savedPath);
-        };
-      }
-      const copyPathBtn = this.contextMenu.querySelector(".copyPath");
-      if (copyPathBtn) {
-        copyPathBtn.onclick = () => {
+      items.push({
+        iconHtml: icons.copy,
+        label: `Copy Path${selectionCount > 1 ? 's' : ''}`,
+        className: 'copyPath',
+        onClick: () => {
           const paths = selectedFiles.map(f => fileSystem.getResolvedPath(savedPath, f.name)[0]).join('\n');
           this.copyPath(savedPath, null, paths);
-        };
+        }
+      });
+      items.push({ isSeparator: true });
+
+      if (isSingleSelection) {
+        items.push({
+          iconHtml: icons.rename,
+          label: 'Rename',
+          className: 'rename',
+          onClick: () => this.renameSelected(firstFile, savedPath, firstFile.name)
+        });
+        if (isArchive) {
+          items.push({
+            iconHtml: icons.unarchive,
+            label: 'Unarchive',
+            className: 'unarchive',
+            onClick: async () => this.unarchiveFile(firstFile, savedPath)
+          });
+        }
       }
+      items.push({
+        iconHtml: icons.delete,
+        label: 'Delete',
+        className: 'delete',
+        onClick: async () => await this.deleteSelectedMultiple(selectedFiles, savedPath)
+      });
     } else {
-      const pasteBtn = this.contextMenu.querySelector(".paste");
-      if (pasteBtn) {
-        pasteBtn.onclick = () => {
-          this.pasteSelected();
-        };
+      if (hasClipboard) {
+        items.push({
+          iconHtml: icons.paste,
+          label: 'Paste',
+          className: 'paste',
+          onClick: () => this.pasteSelected()
+        });
+        items.push({ isSeparator: true });
       }
-      const newFolderBtn = this.contextMenu.querySelector(".new-folder");
-      if (newFolderBtn) {
-        newFolderBtn.onclick = () => {
-          this.createNewFolder();
-        };
-      }
-      const newFileBtn = this.contextMenu.querySelector(".new-file");
-      if (newFileBtn) {
-        newFileBtn.onclick = () => {
-          this.createNewFile();
-        };
-      }
-      const refreshBtn = this.contextMenu.querySelector(".refresh");
-      if (refreshBtn) {
-        refreshBtn.onclick = () => {
-          this.updateUI();
-        };
-      }
-      const copyPathBtn = this.contextMenu.querySelector(".copyPath");
-      if (copyPathBtn) {
-        copyPathBtn.onclick = () => {
-          this.copyPath(savedPath, null);
-        };
-      }
+      items.push({
+        iconHtml: icons.newFolder,
+        label: 'New Folder',
+        className: 'new-folder',
+        onClick: () => this.createNewFolder()
+      });
+      items.push({
+        iconHtml: icons.newFile,
+        label: 'New File',
+        className: 'new-file',
+        onClick: () => this.createNewFile()
+      });
+      items.push({ isSeparator: true });
+      items.push({
+        iconHtml: icons.copy,
+        label: 'Copy Current Path',
+        className: 'copyPath',
+        onClick: () => this.copyPath(savedPath, null)
+      });
+      items.push({
+        iconHtml: icons.refresh,
+        label: 'Refresh',
+        className: 'refresh',
+        onClick: () => this.updateUI()
+      });
     }
 
-    this.appMain.appendChild(this.contextMenu);
-    const r = this.modWindow.getBoundingClientRect();
-    const x = Math.max(
-      10,
-      Math.min(
-        e.pageX - r.left - window.scrollX,
-        r.width - this.contextMenu.offsetWidth
-      )
-    );
-    const y = Math.max(
-      10,
-      Math.min(
-        e.pageY - r.top - window.scrollY,
-        r.height - this.contextMenu.offsetHeight
-      )
-    );
-    this.contextMenu.style.left = `${x}px`;
-    this.contextMenu.style.top = `${y}px`;
-    this.app.addTrackedListener(document, "click", (e) => {
+    this.contextMenu = ContextMenuBuilder.renderMenu({
+      event: e,
+      headerIconHtml,
+      headerLabelText,
+      headerBadge: selectionCount > 1 ? String(selectionCount) : '',
+      items,
+      appendTo: this.appMain,
+      containerRect: this.modWindow.getBoundingClientRect()
+    });
+
+    this.app.addTrackedListener(document, "click", () => {
       this.contextMenu?.remove();
     }, { once: true });
   }
