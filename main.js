@@ -2482,6 +2482,14 @@ class FileExplorer {
   }
   showContextMenu(e) {
     if (this.contextMenu) this.contextMenu.remove();
+    const targetFile = e.target.closest(".file-item");
+    if (targetFile && !this.selectedItems.has(targetFile.dataset.name)) {
+      this.selectedItems.clear();
+      this.ctrlSelectedItems.clear();
+      this.selectedItems.add(targetFile.dataset.name);
+      this.lastSelectedIndex = Array.from(this.fileList.querySelectorAll(".file-item")).indexOf(targetFile);
+      this.updateFileSelection();
+    }
     const savedPath = this.context.path;
     const savedSelectedArray = Array.from(this.selectedItems);
     const selectedFiles = savedSelectedArray.map(name => fileSystem.ls(savedPath).find((f) => f.name === name)).filter(Boolean);
@@ -2490,15 +2498,15 @@ class FileExplorer {
 
     const selectionCount = selectedFiles.length;
     const hasSelection = selectionCount > 0;
-    const headerIconHtml = selectionCount === 1
-      ? this.getFileIcon(selectedFiles[0], false)
-      : selectionCount > 1 ? icons.files : icons.explorer;
-    const headerLabelText = selectionCount === 1 ? selectedFiles[0].name
-      : (selectionCount > 1 ? 'Selected items' : 'File Explorer');
+    const isFileMenu = hasSelection && targetFile;
+    const headerIconHtml = isFileMenu ? (selectionCount > 1
+      ? icons.files : this.getFileIcon(selectedFiles[0], false)) : icons.explorer;
+    const headerLabelText = isFileMenu ? (selectionCount > 1
+      ? 'Selected items' : selectedFiles[0].name) : 'File Explorer';
 
     const items = [];
 
-    if (hasSelection) {
+    if (isFileMenu) {
       const isSingleSelection = selectionCount === 1;
       const firstFile = selectedFiles[0];
       const isArchive = firstFile.type === 'file' && fileSystem.getFileType(firstFile.name).type === "archive";
@@ -2565,14 +2573,6 @@ class FileExplorer {
         className: 'cut',
         onClick: () => this.cutSelected()
       });
-      if (hasClipboard) {
-        items.push({
-          iconHtml: icons.paste,
-          label: 'Paste',
-          className: 'paste',
-          onClick: () => this.pasteSelected()
-        });
-      }
       items.push({
         iconHtml: icons.copy,
         label: `Copy Path${selectionCount > 1 ? 's' : ''}`,
@@ -2611,6 +2611,7 @@ class FileExplorer {
         items.push({
           iconHtml: icons.paste,
           label: 'Paste',
+          badge: clipboardData.paths.length || '',
           className: 'paste',
           onClick: () => this.pasteSelected()
         });
@@ -2647,7 +2648,7 @@ class FileExplorer {
       event: e,
       headerIconHtml,
       headerLabelText,
-      headerBadge: selectionCount > 1 ? String(selectionCount) : '',
+      headerBadge: (isFileMenu && selectionCount > 1) ? String(selectionCount) : '',
       items,
       appendTo: this.appMain,
       containerRect: this.modWindow.getBoundingClientRect()

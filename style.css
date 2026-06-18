@@ -165,10 +165,16 @@ body {
   z-index: 1;
 }
 
-.desktop-icon.selected .label {
+.desktop-icon.selected .label,
+.desktop-icon:has(.rename-input) .label {
   display: block;
   overflow: visible;
   text-overflow: unset;
+}
+
+.desktop-icon:has(.rename-input) {
+  max-height: unset;
+  z-index: 1;
 }
 
 .desktop-icon.dragging {
@@ -182,7 +188,8 @@ body {
   max-width: 78px;
   outline: 1px solid rgba(0, 255, 0, 0.5);
   border: none;
-  height: 60px;
+  min-height: 0;
+  height: auto;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.8);
   color: var(--text);
@@ -193,11 +200,12 @@ body {
   padding: 0;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  word-break: break-all;
+  word-break: break-word;
   line-height: 1;
   white-space: pre-wrap;
-  overflow: auto;
+  overflow: hidden;
   resize: none;
+  box-sizing: border-box;
 }
 
 .desktop-icon .rename-input:focus {
@@ -809,7 +817,6 @@ html:has(.modal-window.resizing) * {
   display: flex;
   height: 100%;
   width: 100%;
-  gap: 10px;
   padding: 5px 5px 5px 0;
   box-sizing: border-box;
 }
@@ -921,12 +928,14 @@ html:has(.modal-window.resizing) * {
   gap: 4px;
   font-size: 11px;
   padding: 4px 8px;
+  margin-left: 5px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
   overflow-x: auto;
   white-space: nowrap;
   color: #888;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .breadcrumb-item {
@@ -1045,8 +1054,7 @@ html:has(.modal-window.resizing) * {
 
 .file-list {
   width: 100%;
-  padding: 0;
-  padding-bottom: 10px;
+  padding: 0 0 10px 10px;
   overflow-y: auto;
   box-sizing: border-box;
   flex-grow: 1;
@@ -1348,7 +1356,7 @@ html:has(.modal-window.resizing) * {
   grid-template-columns: 1fr calc(25% - 5px) calc(20% + 15px);
   gap: 8px;
   margin: 5px 0;
-  padding: 0;
+  padding: 0 0 0 10px;
   width: 100%;
   box-sizing: border-box;
   user-select: none;

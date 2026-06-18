@@ -29,7 +29,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v5.2.0';
+    const ver = 'v5.2.1';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -87,7 +87,7 @@
       listView: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       compactView: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 1C9.65685 1 11 2.34315 11 4V8C11 9.65685 9.65685 11 8 11H4C2.34315 11 1 9.65685 1 8V4C1 2.34315 2.34315 1 4 1H8ZM8 3C8.55228 3 9 3.44772 9 4V8C9 8.55228 8.55228 9 8 9H4C3.44772 9 3 8.55228 3 8V4C3 3.44772 3.44772 3 4 3H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 13C9.65685 13 11 14.3431 11 16V20C11 21.6569 9.65685 23 8 23H4C2.34315 23 1 21.6569 1 20V16C1 14.3431 2.34315 13 4 13H8ZM8 15C8.55228 15 9 15.4477 9 16V20C9 20.5523 8.55228 21 8 21H4C3.44772 21 3 20.5523 3 20V16C3 15.4477 3.44772 15 4 15H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M23 4C23 2.34315 21.6569 1 20 1H16C14.3431 1 13 2.34315 13 4V8C13 9.65685 14.3431 11 16 11H20C21.6569 11 23 9.65685 23 8V4ZM21 4C21 3.44772 20.5523 3 20 3H16C15.4477 3 15 3.44772 15 4V8C15 8.55228 15.4477 9 16 9H20C20.5523 9 21 8.55228 21 8V4Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M20 13C21.6569 13 23 14.3431 23 16V20C23 21.6569 21.6569 23 20 23H16C14.3431 23 13 21.6569 13 20V16C13 14.3431 14.3431 13 16 13H20ZM20 15C20.5523 15 21 15.4477 21 16V20C21 20.5523 20.5523 21 20 21H16C15.4477 21 15 20.5523 15 20V16C15 15.4477 15.4477 15 16 15H20Z" fill="currentColor"></path> </g></svg>',
       files: '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path fill="currentColor" d="M128 384v448h768V384H128zm-32-64h832a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32zm64-128h704v64H160zm96-128h512v64H256z"></path></g></svg>',
-      apps: '<svg fill="currentColor" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" transform="matrix(-1, 0, 0, 1, 0, 0)"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path d="M 43.6327 20.5937 C 48.0860 20.5937 51.7657 16.9141 51.7657 12.4610 C 51.7657 8.0078 48.1091 4.3281 43.6327 4.3281 C 39.1796 4.3281 35.5233 8.0078 35.5233 12.4610 C 35.5233 16.9141 39.1796 20.5937 43.6327 20.5937 Z M 4.2343 39.1797 C 4.2343 43.1875 4.5858 46.5156 6.9765 48.9063 C 9.3671 51.2969 12.7421 51.6719 16.7499 51.6719 L 34.9608 51.6719 C 38.9452 51.6719 42.3202 51.2969 44.7108 48.9063 C 47.1016 46.5156 47.4529 43.1875 47.4529 39.1797 L 47.4529 23.2188 C 46.4219 23.5703 45.2968 23.7578 44.1249 23.7344 C 43.9608 23.7578 43.8436 23.7578 43.6796 23.7813 L 43.6796 39.8125 C 43.6796 42.2500 43.3749 44.7344 41.9687 46.1641 C 40.5389 47.5703 38.0077 47.8984 35.5936 47.8984 L 16.0936 47.8984 C 13.6796 47.8984 11.1484 47.5703 9.7421 46.1641 C 8.3124 44.7344 8.0077 42.2500 8.0077 39.8125 L 8.0077 20.5703 C 8.0077 18.1094 8.3124 15.5781 9.7187 14.1719 C 11.1484 12.7422 13.7030 12.4375 16.1640 12.4375 L 32.3358 12.4375 C 32.3358 12.2735 32.3593 12.1328 32.3827 11.9922 C 32.3593 10.8203 32.5233 9.6953 32.8984 8.6641 L 16.6796 8.6641 C 12.7421 8.6641 9.3671 9.0391 6.9765 11.4297 C 4.5858 13.8203 4.2343 17.1719 4.2343 21.0859 Z"></path></g></svg>',
+      apps: '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="30" width="160" height="140" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="20" y="30" width="160" height="35" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="35" cy="47" r="5" fill="currentColor"/><circle cx="50" cy="47" r="5" fill="currentColor"/><circle cx="65" cy="47" r="5" fill="currentColor"/><polyline points="70,95 40,118 70,141" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><polyline points="90,85 110,151" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><polyline points="130,95 160,118 130,141" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     let iDBFS, fileSystem, desktop;
     window.openApplications = [];
@@ -1309,9 +1309,12 @@
           icon.style.gridRowStart = String(position.row + 1);
         }
         this.desktop?.appendChild(icon);
-
         if (isRenaming) {
           const renameInput = icon.querySelector('.rename-input');
+          const adjustHeight = () => {
+            renameInput.style.height = '1px';
+            renameInput.style.height = renameInput.scrollHeight + 'px';
+          };
           const commitRename = (newValue) => {
             if (!this.renamingIconName) {
               this.refreshDesktop();
@@ -1339,7 +1342,7 @@
           renameInput.addEventListener('keydown', (e) => {
             if (!this.renamingIconName) return;
             e.stopPropagation();
-            if (e.code === 'Enter') {
+            if (e.code === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               renameCommittedByEnter = true;
               commitRename(renameInput.value);
@@ -1348,8 +1351,11 @@
               renameCommittedByEnter = true;
               this.renamingIconName = null;
               this.refreshDesktop();
+            } else {
+              setTimeout(adjustHeight, 0);
             }
           });
+          renameInput.addEventListener('input', adjustHeight);
           renameInput.addEventListener('blur', () => {
             if (renameCommittedByEnter) {
               renameCommittedByEnter = false;
@@ -1363,6 +1369,7 @@
           renameInput.addEventListener('mousedown', (e) => e.stopPropagation());
           renameInput.addEventListener('mouseup', (e) => e.stopPropagation());
           renameInput.addEventListener('dragstart', (e) => e.stopPropagation());
+          adjustHeight();
           renameInput.focus();
           renameInput.select();
         }
@@ -1584,7 +1591,7 @@
             this.lastSelectedIndex = currentIndex;
           }
         } else if (e.ctrlKey) {
-          if (this.ctrlSelectedIcons.has(icon)) {
+          if (this.selectedIcons.has(icon)) {
             this.ctrlSelectedIcons.delete(icon);
             this.selectedIcons.delete(icon);
           } else {
@@ -1862,6 +1869,7 @@
             label: 'New Folder',
             className: 'new-folder',
             onClick: () => {
+              this.closeContextMenu();
               let newName = "New Folder";
               let counter = 0;
               const files = fileSystem.ls('/bin/desktop');
@@ -1884,6 +1892,7 @@
             label: 'New File',
             className: 'new-file',
             onClick: () => {
+              this.closeContextMenu();
               let newName = "New File.txt";
               let counter = 0;
               const files = fileSystem.ls('/bin/desktop');
@@ -1916,8 +1925,8 @@
             label: 'Refresh',
             className: 'refresh',
             onClick: () => {
-              this.refreshDesktop();
               this.closeContextMenu();
+              this.refreshDesktop();
             }
           });
         } else {
@@ -1995,9 +2004,29 @@
         }, 0);
       }
       refreshDesktop() {
+        const selectedIconNames = this.getSelectedIconNames();
         this.desktop.innerHTML = '';
+        this.selectedIcons.clear();
+        this.ctrlSelectedIcons.clear();
         this.loadDesktopShortcuts();
-        this.closeContextMenu();
+        this.restoreSelectedIcons(selectedIconNames);
+      }
+      getSelectedIconNames() {
+        return Array.from(this.selectedIcons).map(icon => {
+          const item = JSON.parse(icon.dataset.item);
+          return item.name;
+        });
+      }
+      restoreSelectedIcons(iconNames) {
+        if (!iconNames || iconNames.length === 0) return;
+        const iconSet = new Set(iconNames);
+        this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
+          const item = JSON.parse(icon.dataset.item);
+          if (iconSet.has(item.name)) {
+            this.selectedIcons.add(icon);
+            icon.classList.add('selected');
+          }
+        });
       }
       getDesktopSelectedPaths() {
         return Array.from(this.selectedIcons).map(icon => {
@@ -2160,9 +2189,9 @@
         this.desktop.focus();
       }
       async deleteSelectedIcons() {
-        const selectedIcons = this.selectedIcons;
-        if (selectedIcons.size <= 0) return;
-        const confirm = await new Dialog("Confirm Delete", `Are you sure you want to delete ${selectedIcons.size} item${selectedIcons.size === 1 ? '' : 's'}?`, "This action cannot be undone.", "warning", ['Delete', 'Cancel'], 'Cancel');
+        const selectedIcons = Array.from(this.selectedIcons);
+        if (selectedIcons.length <= 0) return;
+        const confirm = await new Dialog("Confirm Delete", `Are you sure you want to delete ${selectedIcons.length} item${selectedIcons.length === 1 ? '' : 's'}?`, "This action cannot be undone.", "warning", ['Delete', 'Cancel'], 'Cancel');
         if (!confirm || confirm !== 'Delete') return;
         selectedIcons.forEach(icon => {
           const shortcut = JSON.parse(icon.dataset.item);
