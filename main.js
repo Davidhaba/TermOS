@@ -49,7 +49,7 @@ class ContextMenuBuilder {
     if (disabled) item.classList.add('disabled');
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'menu-icon';
-    iconWrapper.innerHTML = iconHtml;
+    iconWrapper.innerHTML = iconHtml || '';
     const textWrapper = document.createElement('div');
     textWrapper.className = 'menu-label';
     textWrapper.textContent = label;
@@ -142,7 +142,7 @@ class ContextMenuBuilder {
 }
 
 class Modal {
-  constructor(title = "Info") {
+  constructor(title = "Info", iconHtml = null) {
     this.appName = title;
     this.modWindow = document.createElement("div");
     this.modWindow.classList.add("modal-window");
@@ -200,24 +200,31 @@ class Modal {
     this.childApps = [];
     this.setActiveWindow();
     this.updateTitle(title);
-
+    this.iconHtml = iconHtml;
     window.openApplications.push(this);
   }
-  checkBlocking(e = null) {
+  checkBlocking(e = null, animAll = false) {
     if (this.isBlocked) {
-      e && e.preventDefault();
+      e && e.cancelable && e.preventDefault();
       if (this.dialogApp) {
-        this.dialogApp.setActiveWindow();
+        this.dialogApp.setActiveWindow(true);
         return;
       }
       if (this.childApps && this.childApps.length === 0) {
         this.unblockWindow();
       }
     }
-    this.setActiveWindow();
+    this.setActiveWindow(!!animAll);
   }
   updateTitle(newTitle) {
     this.title.textContent = newTitle || this.title;
+  }
+  updateIcon(newIconHtml) {
+    window.openApplications.forEach(app => {
+      if (app === this) {
+        app.iconHtml = newIconHtml;
+      }
+    });
   }
   setApp() {
     const minButton = document.createElement("div");
@@ -286,10 +293,12 @@ class Modal {
     this.trackedListeners = this.trackedListeners.filter(listener => !(listener.element === element && listener.event === event && listener.handler === handler));
   }
 
-  removeAllListeners() {
+  removeAllListeners(fromElement = null) {
     this.trackedListeners.forEach(({ element, event, handler, options }) => {
       try {
-        element.removeEventListener(event, handler, options);
+        if (element === fromElement || fromElement === null) {
+          element.removeEventListener(event, handler, options);
+        }
       } catch (e) { }
     });
     this.trackedListeners = [];
@@ -309,13 +318,30 @@ class Modal {
         this.modWindow.remove();
         this.modWindow = null;
         this.childApps.forEach(app => app.handleClose());
+        window.openApplications.splice(window.openApplications.indexOf(this), 1);
       }
-      const openWindows = document.querySelectorAll('.modal-window');
-      if (openWindows.length === 0) {
+      const openWindows = window.openApplications;
+      if (!openWindows || openWindows.length === 0) {
         const desktop = document.querySelector('.desktop');
         if (desktop && typeof desktop.classList !== 'undefined') {
           desktop.classList.add('active');
           desktop.focus();
+        }
+      } else {
+        const lastWindow = openWindows[openWindows.length - 1];
+        if (lastWindow && !lastWindow.isMinimized) lastWindow.setActiveWindow();
+
+        let highestWindow = null;
+        let maxZ = -1;
+        openWindows.forEach(w => {
+          const z = parseInt(w.modWindow?.style?.zIndex || 100, 10);
+          if (z > maxZ && w.modWindow && !w.isMinimized) {
+            maxZ = z;
+            highestWindow = w;
+          }
+        });
+        if (highestWindow) {
+          highestWindow.setActiveWindow?.();
         }
       }
     }, 100);
@@ -338,9 +364,11 @@ class Modal {
   handleMinimize(toggle = true) {
     if (toggle) {
       this.isMinimized = !this.isMinimized;
-      this.handleMaximize(false);
       this.setTransition();
       this.modWindow.classList[this.isMinimized ? "add" : "remove"]("minimize");
+      if (this.isMinimized) {
+        desktop.unsetActiveWindows();
+      }
     } else if (this.isMinimized) {
       this.isMinimized = false;
       this.modWindow.classList.remove("minimize");
@@ -418,7 +446,7 @@ class Modal {
     const newY = clientY - this.offsetY;
     const appRect = this.modWindow.getBoundingClientRect();
     const maxX = vp.width - 30;
-    const maxY = vp.height - 30;
+    const maxY = vp.height - 30 - 40;
     const boundedX = Math.max(0 - appRect.width + 30, Math.min(newX, maxX));
     const boundedY = Math.max(0, Math.min(newY, maxY));
     this.modWindow.style.left = `${boundedX}px`;
@@ -426,12 +454,8 @@ class Modal {
     if (e.cancelable) e.preventDefault();
   }
   stopDragging(e) {
-    if (
-      !this.isDragging ||
-      (e.type === "touchend" &&
-        Array.from(e.touches).find((t) => t.identifier === this.activeTouchId))
-    )
-      return;
+    if (!this.isDragging || (e.type === "touchend" &&
+      Array.from(e.touches).find((t) => t.identifier === this.activeTouchId))) return;
     this.isDragging = false;
     this.activeTouchId = null;
     this.titleBar.style.cursor = "";
@@ -440,22 +464,18 @@ class Modal {
     this.removeTrackedListener(document, "mouseup", this._mouseUpHandler);
     this.removeTrackedListener(document, "touchend", this._touchEndHandler);
   }
-  setActiveWindow() {
+  setActiveWindow(all = false) {
     if (!this.modWindow?.classList.contains("active")) {
-      document.querySelectorAll(".modal-window").forEach((window) => {
-        window.classList.remove("active");
-      });
-      const desktop = document.querySelector('.desktop');
-      if (desktop && desktop.classList.contains('active')) {
-        desktop.classList.remove('active');
-      }
+      desktop?.unsetActiveWindows();
       if (this.modWindow) {
-        this.setTransition("shadow");
+        this.setTransition(all ? null : "shadow");
+        this.handleMinimize(false);
         this.modWindow.classList.add("active");
         this.bringToFront();
       }
     }
     if (this.modWindow && !this.modWindow.contains(document.activeElement)) this.modWindow.focus();
+    taskbar?.updateTaskbar();
   }
   bringToFront() {
     const maxZ = Math.max(
@@ -475,7 +495,6 @@ class Dialog {
       const app = new Modal(title);
       const appMain = app.appMain;
       app.modWindow.classList.add('dialog');
-      appMain.classList.add("padd");
       const standart = 'Cancel';
       app.setupExitBtn(async () => {
         closeDialog(standart);
@@ -515,7 +534,7 @@ class Dialog {
         });
         app.modWindow.style.minWidth = buttonsWidth + 'px';
         app.modWindow.style.width = '';
-      }, 10);
+      }, 0);
 
       const closeDialog = (result) => {
         if (parentModal) {
@@ -544,7 +563,7 @@ class Dialog {
 
 class FileCopyManager {
   constructor() {
-    this.app = new Modal("Copy Manager");
+    this.app = new Modal("Copy Manager", icons.copy);
     this.appMain = this.app.appMain;
     this.appMain.classList.add("unarchive-manager-windows");
     this.app.setApp();
@@ -687,13 +706,15 @@ class FileCopyManager {
 class Terminal {
   constructor(args = null) {
     this.appName = 'Termix';
-    this.terminalApp = new Modal(this.appName);
+    this.iconHtml = icons.terminal;
+    this.terminalApp = new Modal(this.appName, this.iconHtml);
     this.terminalWindow = this.terminalApp.appMain;
     this.terminalWindow.classList.add("padd");
     this.terminalMain = this.terminalApp.modWindow;
     this.updateTitle = this.terminalApp.updateTitle;
     this.history = [];
     this.historyIndex = -1;
+    this.pendingInput = '';
     this.isDownloadedSpec = false;
     this.currentHint = null;
     this.init();
@@ -927,15 +948,14 @@ class Terminal {
   init() {
     this.terminalApp.setupExitBtn();
     this.terminalApp.setApp();
-    this.terminalApp.setupInfoBtn('Termix',
+    this.terminalApp.setupInfoBtn(this.appName,
       'Termix is the terminal application within TermOS. Use it to manage files, edit text, and run utilities. Type "help" to see all available commands.'
     );
     this.context = new FileSystemClone();
     this.about();
     this.addOutputLine("Type 'help' for help");
     this.createInputLine();
-    this.placeCaretAtEnd(this.input);
-    this.terminalApp.addTrackedListener(this.terminalMain, 'keyup', () => this.placeCaretAtEnd(this.input));
+    this.placeCaretAtEnd();
     this.terminalApp.addTrackedListener(this.terminalWindow, 'click', () => this.input.focus());
 
     const keyboardControls = document.createElement('div');
@@ -952,89 +972,69 @@ class Terminal {
     let lastWinHeight = window.innerHeight;
     this.terminalApp.addTrackedListener(window, 'resize', () => {
       const currentHeight = window.innerHeight;
-      if (currentHeight < lastWinHeight) {
-        keyboardControls.classList.add('visible');
-      } else {
-        keyboardControls.classList.remove('visible');
-      }
+      keyboardControls.classList.toggle('visible', currentHeight < lastWinHeight);
       lastWinHeight = currentHeight;
     });
-    this.terminalApp.addTrackedListener(keyboardControls, 'touchstart', (e) => {
-      if (e.target.tagName === 'BUTTON') {
-        e.target.classList.add("active");
-        this.startHandleKey = e.target.dataset.key;
-      }
-    });
-    this.terminalApp.addTrackedListener(keyboardControls, 'mousedown', (e) => {
-      if (e.target.tagName === 'BUTTON') {
-        e.target.classList.add("active");
-        this.startHandleKey = e.target.dataset.key;
-      }
-    });
-    this.terminalApp.addTrackedListener(keyboardControls, 'touchend', (e) => {
+
+    const handleButtonPress = (e) => {
       const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
-      if (button) {
-        button.classList.remove("active");
-        e.preventDefault();
-        const key = e.target.dataset.key;
-        if (!this.input || !key || !this.startHandleKey || key !== this.startHandleKey) return;
-        this.startHandleKey = null;
-        if (key === 'ArrowLeft') {
-          const start = this.input.selectionStart;
-          this.input.selectionEnd = start > 0 ? start - 1 : 0;
-        } else if (key === 'ArrowRight') {
-          const end = this.input.selectionEnd;
-          const textLength = this.input.textContent.length;
-          this.input.selectionStart = end < textLength ? end + 1 : textLength;
-        } else {
-          this.input.dispatchEvent(new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true }));
-        }
-      }
-    });
-    this.terminalApp.addTrackedListener(keyboardControls, 'mouseup', (e) => {
+      if (!button) return;
+      button.classList.add("active");
+      this.startHandleKey = button.dataset.key;
+    };
+
+    const handleButtonRelease = (e) => {
       const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
-      if (button) {
-        button.classList.remove("active");
-        e.preventDefault();
-        const key = e.target.dataset.key;
-        if (!this.input || !key || !this.startHandleKey || key !== this.startHandleKey) return;
+      if (!button || !button.classList.contains("active")) return;
+
+      button.classList.remove("active");
+      e.preventDefault();
+
+      const key = button.dataset.key;
+      if (!this.input || !key || !this.startHandleKey || key !== this.startHandleKey) {
         this.startHandleKey = null;
-        if (key === 'ArrowLeft') {
-          const start = this.input.selectionStart;
-          this.input.selectionEnd = start > 0 ? start - 1 : 0;
-        } else if (key === 'ArrowRight') {
-          const end = this.input.selectionEnd;
-          const textLength = this.input.textContent.length;
-          this.input.selectionStart = end < textLength ? end + 1 : textLength;
-        } else {
-          this.input.dispatchEvent(new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true }));
-        }
+        return;
       }
-    });
+
+      this.startHandleKey = null;
+      if (key === 'ArrowLeft') {
+        const start = this.input.selectionStart;
+        this.input.selectionEnd = start > 0 ? start - 1 : 0;
+      } else if (key === 'ArrowRight') {
+        const end = this.input.selectionEnd;
+        const textLength = this.input.textContent.length;
+        this.input.selectionStart = end < textLength ? end + 1 : textLength;
+      } else {
+        this.input.dispatchEvent(new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true }));
+      }
+    };
+
+    const handleCancel = () => {
+      if (this.startHandleKey) {
+        this.startHandleKey = null;
+        keyboardControls.querySelectorAll('button.active').forEach(btn => btn.classList.remove('active'));
+      }
+    };
+
+    this.terminalApp.addTrackedListener(keyboardControls, 'touchstart', handleButtonPress);
+    this.terminalApp.addTrackedListener(keyboardControls, 'mousedown', handleButtonPress);
+    this.terminalApp.addTrackedListener(keyboardControls, 'touchend', handleButtonRelease);
+    this.terminalApp.addTrackedListener(keyboardControls, 'mouseup', handleButtonRelease);
+
     keyboardControls.querySelectorAll('button').forEach((button) => {
-      this.terminalApp.addTrackedListener(button, 'touchcancel', (e) => {
-        if (e.target.tagName === 'BUTTON' && e.target.classList.contains("active")) {
-          e.target.classList.remove("active");
-          this.startHandleKey = null;
-        }
-      });
-      this.terminalApp.addTrackedListener(button, 'mouseleave', (e) => {
-        if (e.target.tagName === 'BUTTON' && e.target.classList.contains("active")) {
-          e.target.classList.remove("active");
-          this.startHandleKey = null;
-        }
-      });
+      this.terminalApp.addTrackedListener(button, 'touchcancel', handleCancel);
+      this.terminalApp.addTrackedListener(button, 'mouseleave', handleCancel);
     });
   }
   exit() {
     this.terminalApp.handleClose();
   }
-  placeCaretAtEnd(input) {
-    if (input) {
-      input.focus();
+  placeCaretAtEnd() {
+    if (this.input) {
+      this.input.focus();
       if (typeof window.getSelection != "undefined" && typeof document.createRange != "undefined") {
         let range = document.createRange();
-        range.selectNodeContents(input);
+        range.selectNodeContents(this.input);
         range.collapse(false);
         let sel = window.getSelection();
         sel.removeAllRanges();
@@ -1069,7 +1069,6 @@ class Terminal {
 
     this.terminalApp.addTrackedListener(this.input, 'input', () => this.updateHint());
     this.terminalApp.addTrackedListener(this.input, 'keydown', (e) => this.handleInput(e));
-    this.terminalApp.addTrackedListener(this.input, 'mouseup', () => this.placeCaretAtEnd(this.input));
   }
 
   updatePrompt() {
@@ -1127,43 +1126,43 @@ class Terminal {
   createNewInputLine() {
     this.input.contentEditable = false;
     this.createInputLine();
-    this.placeCaretAtEnd(this.input);
+    this.placeCaretAtEnd();
   }
   scrollToBottom() {
     this.terminalWindow.scrollTop = this.terminalWindow.scrollHeight;
   }
   navigateHistory(direction) {
+    if (this.historyIndex === this.history.length) {
+      this.pendingInput = this.input.textContent;
+    }
     this.historyIndex = Math.max(0,
       Math.min(this.history.length, this.historyIndex + direction));
     if (this.historyIndex >= 0 && this.historyIndex !== this.history.length) {
       const history = this.history[this.historyIndex];
       if (typeof history === 'string') this.input.textContent = history;
     } else {
-      this.input.textContent = '';
+      this.input.textContent = this.pendingInput || '';
     }
     this.updateHint();
-    this.placeCaretAtEnd(this.input);
+    this.placeCaretAtEnd();
   }
 
   parseFullArguments(commandStr) {
     const parts = [];
-    let inQuotes = false;
+    let inDoubleQuotes = false;
+    let inSingleQuotes = false;
     let currentPart = '';
     for (let i = 0; i < commandStr.length; i++) {
       const char = commandStr[i];
-      if (char === '"' || char === "'") {
-        inQuotes = !inQuotes;
-        if (inQuotes === false) {
-          if (currentPart.length > 0) {
-            parts.push(currentPart);
-            currentPart = '';
-          }
-        }
-      } else if (char === ' ' && !inQuotes) {
+      if (char === '"' && !inSingleQuotes) {
+        inDoubleQuotes = !inDoubleQuotes;
+      } else if (char === "'" && !inDoubleQuotes) {
+        inSingleQuotes = !inSingleQuotes;
+      } else if (char === ' ' && !inDoubleQuotes && !inSingleQuotes) {
         if (currentPart.length > 0) {
           parts.push(currentPart);
+          currentPart = '';
         }
-        currentPart = '';
       } else {
         currentPart += char;
       }
@@ -1181,32 +1180,28 @@ class Terminal {
       this.history.push(fullCommand);
     }
     this.historyIndex = this.history.length;
+    this.pendingInput = '';
     const commandChain = fullCommand.split('&&').map(cmd => cmd.trim()).filter(cmd => cmd);
     for (const commandStr of commandChain) {
       const fullArgs = this.parseFullArguments(commandStr);
       const command = fullArgs[0];
       const args = fullArgs.slice(1);
       try {
-        this.terminalApp.updateTitle(command + ' - ' + this.appName);
-        if (this.isSpecialMode) {
-          if (!this.specialCommands[command]) {
-            const [mathExpression, result] = this.safeEval(fullCommand);
-            this.addOutputLine(`${mathExpression} = ${result}`);
-            this.scrollToBottom();
-          } else {
-            await this.specialCommands[command].execute(args);
-          }
+        this.terminalApp.updateTitle(`${command || '...'} - ${this.appName}`);
+        const commandSet = this.isSpecialMode ? this.specialCommands : this.commands;
+        if (commandSet[command]) {
+          await commandSet[command].execute(args);
+        } else if (this.isSpecialMode) {
+          const [mathExpression, result] = this.safeEval(fullCommand);
+          this.addOutputLine(`${mathExpression} = ${result}`);
         } else {
-          if (this.commands[command]) {
-            await this.commands[command].execute(args);
-          } else {
-            this.addOutputLine(`'${command.length > 15 ? command.substring(0, 15) + '...' : command}' is not recognized as a command`, 'error');
-          }
+          throw new Error(`'${command?.length > 18 ? command.substring(0, 15) + '...' : command}' is not recognized as a command`);
         }
       } catch (error) {
         this.addOutputLine(error.message, 'error');
         break;
       }
+      this.scrollToBottom();
     }
     this.createNewInputLine();
     this.scrollToBottom();
@@ -1224,36 +1219,33 @@ class Terminal {
     }
   }
   help(args) {
-    let cmdSet = this.isSpecialMode ? this.specialCommands : this.commands;
+    const cmdSet = this.isSpecialMode ? this.specialCommands : this.commands;
     if (args.length === 0) {
       this.addOutputLine('Available commands:', 'info');
       this.addOutputLine('\n' + 'Command'.padEnd(11) + 'Description');
       Object.entries(cmdSet).forEach(([cmd, data]) => {
         this.addOutputLine(`${cmd?.padEnd(10)} - ${data?.help?.description ?? '...'}`);
       });
-      this.addOutputLine('\nUse "help <command>" for details');
-    } else {
-      const command = args[0];
-      if (cmdSet[command]) {
-        const info = cmdSet[command].help;
-        const des = info?.description;
-        const us = info?.usage;
-        const ex = info?.example?.replace(/\n/g, '\n  ');
-        this.addOutputLine("Help for: " + command, 'info');
-        if (des) this.addOutputLine("Description: " + des);
-        if (us) this.addOutputLine(`Usage:      ${us}`);
-        if (ex) this.addOutputLine(`Examples:\n  ${ex}`);
-      } else {
-        this.addOutputLine(`Command '${command}' not found`, 'error');
-      }
+      this.addOutputLine('\nUse "help <command>" for more details');
+      return;
     }
+    const command = args[0];
+    const info = cmdSet[command];
+    if (!info) {
+      throw new Error(`Command '${command}' not found`);
+    }
+    const { description, usage, example } = info.help || {};
+    this.addOutputLine(`Help for: ${command}`, 'info');
+    if (description) this.addOutputLine(`Description: ${description}`);
+    if (usage) this.addOutputLine(`Usage:       ${usage}`);
+    if (example) this.addOutputLine(`Examples:\n  ${example.replace(/\n/g, '\n  ')}`);
   }
   clear() {
     this.terminalWindow.innerHTML = '';
     this.addOutputLine('Terminal cleared', 'info');
   }
   about() {
-    this.addOutputLine(`TermOS ${ver} - Termix (by David)`, 'info');
+    this.addOutputLine(`TermOS ${ver} - ${this.appName} (by David)`, 'info');
   }
   formatItemInfo(item) {
     return fileSystem.formatSize(fileSystem.getItemSize(item), item.type);
@@ -1279,24 +1271,22 @@ class Terminal {
   }
   mkdir(args) {
     if (args.length === 0) {
-      this.addOutputLine('Please specify directory name', 'error');
-      return;
+      throw new Error('Please specify directory name');
     }
     const success = fileSystem.mkdir(this.context.path, args[0]);
-    if (success) {
-      this.addOutputLine(`Directory '${args[0]}' created`);
-    } else {
-      this.addOutputLine(`Directory '${args[0]}' already exists`, 'error');
+    if (!success) {
+      throw new Error(`Directory '${args[0]}' already exists`);
     }
+    this.addOutputLine(`Directory '${args[0]}' created`, 'success');
   }
+
   cd(args) {
     if (args.length === 0) {
-      this.addOutputLine('Please specify path', 'error');
-      return;
+      throw new Error('Please specify path');
     }
     const newPath = fileSystem.cd(this.context.path, args[0]);
     if (!newPath) {
-      this.addOutputLine(`Invalid path: ${args[0]}`, 'error');
+      throw new Error(`Invalid path: ${args[0]}`);
     }
     this.context.path = newPath;
   }
@@ -1305,11 +1295,10 @@ class Terminal {
       throw new Error('Please specify filename');
     }
     const success = fileSystem.touch(this.context.path, args[0]);
-    if (success) {
-      this.addOutputLine(`File '${args[0]}' created`);
-    } else {
-      this.addOutputLine(`File '${args[0]}' already exists`, 'error');
+    if (!success) {
+      throw new Error(`File '${args[0]}' already exists`);
     }
+    this.addOutputLine(`File '${args[0]}' created`, 'success');
   }
   async rm(args) {
     if (args.length === 0) {
@@ -1322,19 +1311,17 @@ class Terminal {
       force = true;
       args.splice(forceIndex, 1);
     }
-    const targetIndex = args.indexOf('-r');
-    if (targetIndex >= 0) {
+
+    const recursiveIndex = args.indexOf('-r');
+    if (recursiveIndex >= 0) {
       recursive = true;
-      args.splice(targetIndex, 1);
+      args.splice(recursiveIndex, 1);
     }
     const fullPath = fileSystem.getResolvedPath(this.context.path, args[0])[0];
     try {
       const success = fileSystem.rm(fullPath, recursive, force);
       if (!success) {
-        const errorMsg = recursive ?
-          "Can't remove directory" :
-          "Directory not empty, use -r for recursive removal";
-        throw new Error(errorMsg);
+        throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
       }
       this.addOutputLine(`'${args[0]}' removed`, 'success');
     } catch (e) {
@@ -1342,20 +1329,16 @@ class Terminal {
       if (message.includes("protected system") && !force) {
         const answer = await new Dialog('Force Remove', `Protected system ${message.includes('directory') ? 'directory' : message.includes('file') ? 'file' : 'item'}`, `${message}. Do you want to force removal?`, 'question', ['Cancel', 'Force'], 'Force', this.terminalApp);
         if (answer === 'Force') {
-          try {
-            const success = fileSystem.rm(fullPath, recursive, true);
-            if (!success) {
-              throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
-            }
-            this.addOutputLine(`'${args[0]}' removed with -f`, 'success');
-          } catch (secondError) {
-            throw new Error(secondError.message || String(secondError));
+          const success = fileSystem.rm(fullPath, recursive, true);
+          if (!success) {
+            throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
           }
+          this.addOutputLine(`'${args[0]}' removed with -f`, 'success');
         } else {
           throw new Error(message);
         }
       } else {
-        throw e;
+        throw new Error(message);
       }
     }
   }
@@ -1425,7 +1408,7 @@ class Terminal {
   }
   async simulateDownload(args) {
     try {
-      const duration = args[0] ? parseInt(args[0]) : 5000;
+      const duration = args[0] ? parseInt(args[0], 10) : 5000;
       const size = this.parseSize(args[1] || '5MB');
       const label = args.slice(2).join(' ') || "Simulation download";
       const progressBar = this.createProgressBar(label);
@@ -1455,28 +1438,26 @@ class Terminal {
     };
     const match = sizeStr.match(/^(\d+)([KMGT]?B)$/i);
     if (!match) throw new Error('Invalid size format');
-    const value = parseInt(match[1]);
+    const value = parseInt(match[1], 10);
     const unit = match[2].toUpperCase();
     if (!units[unit]) throw new Error('Unknown unit');
     return value * units[unit];
   }
   removeHint() {
-    try {
-      if (this.currentHint) {
-        this.currentHint.remove();
-        this.currentHint = null;
-      }
-    } catch { }
+    if (!this.currentHint) return;
+    this.currentHint?.remove?.();
+    this.currentHint = null;
   }
   updateHint() {
+    this.removeHint();
     try {
-      this.removeHint();
-      const hint = this.getHints(this.input.textContent)[0];
+      const hints = this.getHints(this.input.textContent);
+      const hint = hints?.[0];
       if (!hint || hint === '') return;
       this.currentHint = document.createElement('span');
       this.currentHint.className = 'stdin-hint';
       this.currentHint.textContent = hint;
-      this.input.parentNode.appendChild(this.currentHint);
+      this.input.parentNode?.appendChild(this.currentHint);
     } catch {
       this.removeHint();
     }
@@ -1498,27 +1479,30 @@ class Terminal {
     return [''];
   }
   getCommandHints(command, args, currentWord) {
+    const commands = this.isSpecialMode ? this.specialCommands : this.commands;
+    const currentDirItems = fileSystem.ls(this.context.path);
+    const filterByStart = (items) => items.filter(item => item.name.startsWith(currentWord)).map(item => item.name.slice(currentWord.length));
+    const filterByType = (type) => filterByStart(currentDirItems.filter(item => item.type === type));
+
     switch (command) {
       case 'help':
-        if (args.length <= 1)
-          return Object.keys(this.isSpecialMode ? this.specialCommands : this.commands).filter(cmd => cmd.startsWith(currentWord)).map(cmd => cmd.slice(currentWord.length));
+        return args.length <= 1
+          ? filterByStart(Object.keys(commands).map(cmd => ({ name: cmd })))
+          : [];
       case 'cd':
-        if (args.length <= 1)
-          return fileSystem.ls(this.context.path).filter(f => f.type === 'directory' && f.name.startsWith(currentWord)).map(f => f.name.slice(currentWord.length));
+        return args.length <= 1 ? filterByType('directory') : [];
       case 'cat':
       case 'notepad':
       case 'run':
       case 'open':
       case 'unarchive':
-        if (args.length <= 1)
-          return fileSystem.ls(this.context.path).filter(f => f.type === 'file' && f.name.startsWith(currentWord)).map(f => f.name.slice(currentWord.length));
+        return args.length <= 1 ? filterByType('file') : [];
       case 'echo':
-        if (args.length <= 2)
-          return [];
+        return [];
       case 'rm':
       case 'cp':
       case 'mv':
-        return fileSystem.ls(this.context.path).filter(f => f.name.startsWith(currentWord)).map(f => f.name.slice(currentWord.length));
+        return args.length <= 2 ? filterByStart(currentDirItems) : [];
       case 'calc':
         return ['+', '-', '*', '/', '%'].filter(op => op.startsWith(currentWord)).map(op => op.slice(currentWord.length));
       default:
@@ -1530,33 +1514,33 @@ class Terminal {
       const hintText = this.currentHint.textContent;
       this.input.textContent += hintText;
       this.updateHint();
-      this.placeCaretAtEnd(this.input);
+      this.placeCaretAtEnd();
     }
   }
   mv(args) {
     if (args.length < 2) {
-      throw new Error('Usage: mv [source] [target]');
+      throw new Error('Usage: mv <source> <target>');
     }
     const [source, target] = args;
+    const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
+    const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
     try {
-      const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
-      const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
       fileSystem.mv(sourceAbsPath, targetAbsPath);
-      this.addOutputLine(`Moved '${source}' to '${target}'`);
+      this.addOutputLine(`Moved '${source}' to '${target}'`, 'success');
     } catch (e) {
       throw new Error(`Failed to move '${source}': ${e.message}`);
     }
   }
   cp(args) {
     if (args.length < 2) {
-      throw new Error('Usage: cp [source] [target]');
+      throw new Error('Usage: cp <source> <target>');
     }
     const [source, target] = args;
+    const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
+    const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
     try {
-      const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
-      const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
       fileSystem.cp(sourceAbsPath, targetAbsPath);
-      this.addOutputLine(`Copied '${source}' to '${target}'`);
+      this.addOutputLine(`Copied '${source}' to '${target}'`, 'success');
     } catch (e) {
       throw new Error(`Failed to copy '${source}': ${e.message}`);
     }
@@ -1586,7 +1570,7 @@ class Terminal {
         throw new Error('Could not determine filename. Please specify manually.');
       }
       const [fullPath] = fileSystem.getResolvedPath(this.context.path, fileName);
-      const total = parseInt(response.headers.get('Content-Length') || '0');
+      const total = parseInt(response.headers.get('Content-Length') || '0', 10);
       const reader = response.body.getReader();
       const chunks = [];
       let loaded = 0;
@@ -1653,7 +1637,9 @@ class TextEditor {
   constructor(args = null, path = null) {
     this.path = path || args?.split(' -')[1] || null;
     this.name = this.path?.split('/').pop() || null;
-    this.app = new Modal(`${this.name || 'New File'} - Text Editor`);
+    this.iconHtml = icons.text;
+    this.app = new Modal('Text Editor', this.iconHtml);
+    this.app.updateTitle(`${this.name || 'New File'} - Text Editor`);
     this.app.setApp();
     this.app.setupInfoBtn('Text Editor',
       'Text Editor is a simple file editor for creating and saving text files in the virtual filesystem. It supports shortcuts like Ctrl+S to save and Ctrl+N for a new document.'
@@ -1685,6 +1671,9 @@ class TextEditor {
     newBtn.onclick = async () => {
       await this.newFile();
     }
+    const openBtn = document.createElement('button');
+    openBtn.innerHTML = 'Open File <span class="btnKeyInfo">Ctrl+O</span>';
+    openBtn.onclick = () => this.openFile();
     const saveBtn = document.createElement('button');
     saveBtn.innerHTML = 'Save <span class="btnKeyInfo">Ctrl+S</span>';
     saveBtn.onclick = () => this.saveFile();
@@ -1692,6 +1681,7 @@ class TextEditor {
     saveAsBtn.innerHTML = 'Save As...';
     saveAsBtn.onclick = () => this.saveFile(true);
     dropdown.appendChild(newBtn);
+    dropdown.appendChild(openBtn);
     dropdown.appendChild(saveBtn);
     dropdown.appendChild(saveAsBtn);
     fileMenu.appendChild(fileBtn);
@@ -1742,6 +1732,10 @@ class TextEditor {
             e.preventDefault();
             this.newFile();
             break;
+          case 'KeyO':
+            e.preventDefault();
+            this.openFile();
+            break;
         }
       }
     });
@@ -1781,7 +1775,13 @@ class TextEditor {
     }
   }
   async getFileContent() {
-    return await fileSystem.decodeContent(await fileSystem.asyncReadFile(this.path), "text");
+    try {
+      const content = await fileSystem.asyncReadFile(this.path);
+      return await fileSystem.decodeContent(content, "text");
+    } catch (error) {
+      this.showStatus(`Error reading file: ${error.message}`, 'error');
+      return null;
+    }
   }
   async checkChanges() {
     const text = this.textarea.value || "";
@@ -1797,10 +1797,19 @@ class TextEditor {
   }
   async saveFile(isSaveAs = false) {
     try {
-      const newPath = (isSaveAs || !this.path) ?
-        prompt('Enter file path:', (this.path || '/home/untitled.txt')) :
-        this.path;
-      if (!newPath) return;
+      let newPath = this.path;
+
+      if (isSaveAs || !this.path) {
+        const selector = new PathSelector({
+          mode: 'save',
+          initialPath: this.path ? this.path.split('/').slice(0, -1).join('/') : '/home',
+          defaultFileName: this.name || 'newfile.txt',
+          parentModal: this.app
+        });
+        newPath = await selector.open();
+        if (!newPath) return;
+      }
+
       const dirPath = newPath.split('/').slice(0, -1).join('/');
       fileSystem.mkdirp(dirPath);
       const success = await fileSystem.writeFile(newPath, this.textarea.value);
@@ -1852,12 +1861,37 @@ class TextEditor {
       return;
     }
   }
+  async openFile() {
+    if (await this.checkChanges()) {
+      const isSave = await this.confirmSave();
+      if (isSave === null) return;
+    }
+
+    try {
+      const selector = new PathSelector({
+        mode: 'open',
+        initialPath: this.path ? this.path.split('/').slice(0, -1).join('/') : '/home',
+        defaultFileName: this.name || 'newfile.txt',
+        parentModal: this.app
+      });
+      const selectedPath = await selector.open();
+      if (!selectedPath) return;
+
+      this.path = selectedPath;
+      this.name = selectedPath.split('/').pop();
+      await this.loadFileContent();
+      this.showStatus('File opened successfully!', 'success');
+    } catch (error) {
+      this.showStatus(`Error: ${error.message}`, 'error');
+    }
+  }
 }
 
 class ImageViewer {
   constructor(args = null, path = null) {
     path = path || args?.split(' -')[1] || null;
-    this.app = new Modal("Image Viewer");
+    this.iconHtml = icons.image;
+    this.app = new Modal("Image Viewer", this.iconHtml);
     this.app.setupExitBtn();
     this.app.setApp();
     this.app.setupInfoBtn('Image Viewer',
@@ -1906,7 +1940,8 @@ class ImageViewer {
 class FileExplorer {
   constructor(args = null, path = null) {
     const initialPath = path || args?.split(' -')[1] || null;
-    this.app = new Modal("File Explorer");
+    this.iconHtml = icons.folder;
+    this.app = new Modal("File Explorer", this.iconHtml);
     this.appMain = this.app.appMain;
     this.appMain.classList.add("padd");
     this.modWindow = this.app.modWindow;
@@ -1923,6 +1958,7 @@ class FileExplorer {
     this.sortOrder = "asc";
     this.contextMenu = null;
     this.initialPath = initialPath;
+    this.expandedPaths = new Set();
     this.initUI();
     this.noFilesFoundMessage = document.createElement('p');
     this.noFilesFoundMessage.className = 'search-no-results';
@@ -1945,16 +1981,13 @@ class FileExplorer {
       <div class="explorer-container">
         <div class="explorer-sidebar">
           <div class="sidebar-section">
-            <div class="sidebar-title">Quick Access</div>
-            <div class="sidebar-items">
-              <div class="sidebar-item" data-path="/home">${icons.folder} Home</div>
-              <div class="sidebar-item" data-path="/bin/desktop">${icons.folder} Desktop</div>
-            </div>
-          </div>
-          <div class="sidebar-section">
             <div class="sidebar-title">Bookmarks</div>
             <div class="sidebar-items" id="bookmarks-list"></div>
             <button class="add-bookmark-btn" title="Add bookmark">+ Add bookmark</button>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-title">File System</div>
+            <div class="sidebar-items" id="file-system-tree"></div>
           </div>
         </div>
         <div class="explorer-main">
@@ -1986,8 +2019,8 @@ class FileExplorer {
       "back-btn", "refresh-btn", "file-list", "breadcrumb-nav", "explorer-statusbar", "search-input"
     ].map((c) => this.appMain.querySelector(`.${c}`));
     this.sortButtons = this.appMain.querySelectorAll(".sort-btn");
-    this.sidebarItems = this.appMain.querySelectorAll(".sidebar-item");
     this.addBookmarkBtn = this.appMain.querySelector(".add-bookmark-btn");
+    this.fileSystemTree = this.appMain.querySelector("#file-system-tree");
     this.appMain.classList.remove("padd");
     this.setupEvents();
     this.loadBookmarks();
@@ -2007,13 +2040,6 @@ class FileExplorer {
         this.searchInput.value = '';
         this.filterFiles('');
       }
-    });
-
-    this.sidebarItems.forEach(item => {
-      this.app.addTrackedListener(item, 'click', () => {
-        const path = item.dataset.path;
-        this.navigateTo(path);
-      });
     });
 
     this.app.addTrackedListener(this.addBookmarkBtn, 'click', () => {
@@ -2329,6 +2355,8 @@ class FileExplorer {
       return;
     }
     const files = this.getSortedFiles();
+    this.loadFileSystemTree();
+    desktop.refreshDesktop();
     const selectedArray = Array.from(this.selectedItems);
     const validSelected = selectedArray.filter(name => files.find((f) => f.name === name));
     if (validSelected.length !== selectedArray.length) {
@@ -2357,7 +2385,7 @@ class FileExplorer {
       </div>`;
         } else {
           return `
-      <div class="file-item ${f.type} ${this.selectedItems.has(f.name) ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}">
+      <div class="file-item list ${f.type} ${this.selectedItems.has(f.name) ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}">
           <span class="file-icon">${this.getFileIcon(f)}</span>
           <span class="file-name">${fileNameHtml}</span>
           <span class="file-type">${f.type === 'directory' ? 'Folder' : f.type === 'file' ? fileSystem.getFileType(f.name).display : f.type.charAt(0).toUpperCase() + f.type.slice(1).toLowerCase()}</span>
@@ -2604,7 +2632,9 @@ class FileExplorer {
         iconHtml: icons.delete,
         label: 'Delete',
         className: 'delete',
-        onClick: async () => await this.deleteSelectedMultiple(selectedFiles, savedPath)
+        onClick: async () => {
+          await this.deleteSelectedMultiple(selectedFiles, savedPath);
+        }
       });
     } else {
       if (hasClipboard) {
@@ -2684,7 +2714,7 @@ class FileExplorer {
     this.fileList.innerHTML = "";
     this.renamingItem = null;
     this.loadBookmarks();
-    setTimeout(() => this.updateFileList(), 10);
+    setTimeout(() => this.updateFileList(), 0);
   }
   openSelected(selectedFiles = [], path = null, selectedItems = []) {
     if (!path) path = this.context.path;
@@ -2770,41 +2800,6 @@ class FileExplorer {
     }
   }
 
-  async deleteSelected(file = null, path = null, selectedItem = null) {
-    if (!path) path = this.context.path;
-    if (!file) file = fileSystem.ls(path).find((f) => f.name === selectedItem);
-    if (!file) return;
-    try {
-      const itemName = file.name;
-      if (!file) {
-        new Dialog('File Explorer - Error',
-          'Item not found.',
-          `The item "${itemName}" does not exist at the current path.`,
-          'error', ['Ok'], 'Ok', this.app);
-        this.updateUI();
-        return;
-      }
-      if (file.parameters.isSystem === true) {
-        new Dialog('File Explorer - Access Denied',
-          'Cannot delete system item.',
-          `The item "${itemName}" is a protected system ${file.type === 'directory' ? 'directory' : 'file'} and cannot be modified.`,
-          'error', ['Ok'], 'Ok', this.app);
-        return;
-      }
-      const answer = await new Dialog(
-        'File Explorer - Confirm Deletion',
-        `Are you sure you want to permanently delete "${itemName}"?`,
-        `This ${file.type === 'directory' ? 'directory' : 'file'} will be permanently removed from the system and cannot be restored.`,
-        'warning', ['Delete', 'Cancel'], 'Cancel', this.app
-      );
-      if (answer === 'Delete') {
-        fileSystem.rm(fileSystem.getResolvedPath(path, itemName)[0], true);
-        this.updateUI();
-      }
-    } catch (e) {
-      new Dialog('File Explorer - Error', 'An unexpected error occurred.', e.message, 'error', ['Ok'], 'Ok', this.app);
-    }
-  }
   async copyPath(path = null, selectedItem = null, customText = null) {
     try {
       let textToCopy = customText;
@@ -2922,7 +2917,7 @@ class FileExplorer {
   }
 
   loadBookmarks() {
-    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '[]');
+    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '["/home", "/bin/desktop"]');
     const bookmarksList = this.appMain.querySelector('#bookmarks-list');
     if (!bookmarksList) return;
     bookmarksList.innerHTML = '';
@@ -2931,7 +2926,7 @@ class FileExplorer {
       item.className = 'sidebar-item bookmark-item';
       item.dataset.path = path;
       const name = path.split('/').pop() || path;
-      item.innerHTML = `${icons.folder || '📁'} ${name} <span class="bookmark-remove" title="Remove">✕</span>`;
+      item.innerHTML = `${icons.folder} ${name} <span class="bookmark-remove" title="Remove">✕</span>`;
       this.app.addTrackedListener(item, 'click', (e) => {
         if (!e.target.closest('.bookmark-remove')) {
           this.navigateTo(path);
@@ -3046,12 +3041,377 @@ class FileExplorer {
       this.fileList.appendChild(this.noFilesFoundMessage);
     }
   }
+
+  loadFileSystemTree() {
+    if (!this.fileSystemTree) return;
+    this.expandPathInTree(this.context.path);
+    this.fileSystemTree.innerHTML = '';
+    this.renderFolderTree('/', this.fileSystemTree, 0);
+  }
+
+  expandPathInTree(path) {
+    const parts = path.split('/').filter(p => p);
+    let currentPath = '';
+    for (const part of parts) {
+      currentPath += '/' + part;
+      this.expandedPaths.add(currentPath);
+    }
+  }
+
+  renderFolderTree(path, container, depth = 0) {
+    if (depth > 3) return;
+
+    try {
+      const items = fileSystem.ls(path) || [];
+      const folders = items.filter(item => item.type === 'directory').sort((a, b) => a.name.localeCompare(b.name));
+
+      folders.forEach(folder => {
+        const folderPath = `${path}/${folder.name}`.replace(/\/+/g, '/');
+        const hasSubfolders = (fileSystem.ls(folderPath) || []).some(f => f.type === 'directory');
+        const isExpanded = this.expandedPaths.has(folderPath);
+        const isActive = this.context.path === folderPath;
+
+        const treeItem = document.createElement('div');
+        treeItem.className = 'tree-item';
+        treeItem.style.paddingLeft = `${depth * 12}px`;
+        if (isActive) {
+          treeItem.style.background = 'rgba(0,255,0,0.1)';
+        }
+        const toggle = document.createElement('span');
+        toggle.className = 'tree-toggle';
+        toggle.textContent = hasSubfolders ? '▶' : '';
+        treeItem.classList.toggle('expanded', hasSubfolders && isExpanded);
+        const iconSpan = document.createElement('span');
+        iconSpan.style.cssText = 'width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
+        iconSpan.innerHTML = icons.folder;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+        nameSpan.textContent = folder.name;
+
+        treeItem.appendChild(toggle);
+        treeItem.appendChild(iconSpan);
+        treeItem.appendChild(nameSpan);
+
+        const subtree = document.createElement('div');
+        subtree.className = 'tree-subtree';
+        subtree.style.display = isExpanded ? 'block' : 'none';
+        subtree.id = `subtree-${folderPath.replace(/\//g, '-')}`;
+
+        container.appendChild(treeItem);
+        container.appendChild(subtree);
+
+        treeItem.onclick = (e) => {
+          if (e.target === toggle) return;
+          this.context.path = folderPath;
+          this.updateFileList();
+          this.updateBreadcrumb();
+        };
+
+        if (hasSubfolders) {
+          toggle.onclick = (e) => {
+            e.stopPropagation();
+            const currentlyOpen = subtree.style.display !== 'none';
+            if (currentlyOpen) {
+              subtree.style.display = 'none';
+              this.expandedPaths.delete(folderPath);
+              treeItem.classList.remove('expanded');
+            } else {
+              subtree.style.display = 'block';
+              this.expandedPaths.add(folderPath);
+              treeItem.classList.add('expanded');
+              if (subtree.children.length === 0) {
+                this.renderFolderTree(folderPath, subtree, depth + 1);
+              }
+            }
+          };
+          if (isExpanded && subtree.children.length === 0) {
+            this.renderFolderTree(folderPath, subtree, depth + 1);
+          }
+        }
+      });
+    } catch (e) {
+      console.error('Error rendering folder tree:', e);
+    }
+  }
+}
+
+class PathSelector {
+  constructor(options = {}) {
+    this.mode = options.mode || 'open';
+    this.initialPath = options.initialPath || '/home';
+    this.defaultFileName = options.defaultFileName || '';
+    this.parentModal = options.parentModal || null;
+    this.currentPath = this.initialPath;
+    this.selectedPath = null;
+    this.app = null;
+    this.callback = null;
+    this.filenameInput = null;
+    this.pathInput = null;
+    this.sidebar = null;
+    this.fileListContainer = null;
+  }
+
+  open() {
+    return new Promise((resolve) => {
+      this.callback = resolve;
+      this.createDialog();
+    });
+  }
+
+  createDialog() {
+    this.app = new Modal(`${this.mode === 'save' ? 'Save' : 'Open'} File`, icons.folder);
+    const appMain = this.app.appMain;
+    this.app.modWindow.classList.add('ps-modal-window');
+    if (this.parentModal) {
+      this.parentModal.blockWindow();
+      this.parentModal.childApps.push(this.app);
+      this.parentModal.dialogApp = this.app;
+      this.app.parentApp = this.parentModal;
+    }
+
+    this.app.setupExitBtn(() => {
+      this.closeSelector(null);
+      return true;
+    });
+
+    appMain.className = 'ps-main';
+
+    const pathContainer = document.createElement('div');
+    pathContainer.className = 'ps-path-container';
+
+    const pathInput = document.createElement('input');
+    pathInput.type = 'text';
+    pathInput.value = this.currentPath;
+    pathInput.className = 'ps-path-input';
+
+    const goBtn = document.createElement('button');
+    goBtn.textContent = 'Go';
+    goBtn.className = 'ps-go-btn';
+    goBtn.onclick = () => {
+      this.currentPath = pathInput.value;
+      this.updateFileList();
+    };
+
+    pathContainer.appendChild(pathInput);
+    pathContainer.appendChild(goBtn);
+    appMain.appendChild(pathContainer);
+
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'ps-main-container';
+
+    const sidebar = document.createElement('div');
+    sidebar.className = 'ps-sidebar';
+
+    const fileListContainer = document.createElement('div');
+    fileListContainer.className = 'ps-file-list';
+
+    mainContainer.appendChild(sidebar);
+    mainContainer.appendChild(fileListContainer);
+    appMain.appendChild(mainContainer);
+
+    const bottomPanel = document.createElement('div');
+    bottomPanel.className = 'ps-bottom-panel';
+
+    let filenameInput = null;
+    const filenameContainer = document.createElement('div');
+    filenameContainer.className = 'ps-filename-container';
+
+    if (this.mode === 'save') {
+      const filenameLabel = document.createElement('label');
+      filenameLabel.textContent = 'Filename:';
+      filenameLabel.className = 'ps-filename-label';
+
+      filenameInput = document.createElement('input');
+      filenameInput.type = 'text';
+      filenameInput.placeholder = 'Untitled.txt';
+      filenameInput.className = 'ps-filename-input';
+
+      filenameContainer.appendChild(filenameLabel);
+      filenameContainer.appendChild(filenameInput);
+    }
+    bottomPanel.appendChild(filenameContainer);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'ps-button-container';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = this.mode === 'save' ? 'Save' : 'Open';
+    saveBtn.className = this.mode === 'save' ? 'ps-save-btn' : 'ps-open-btn';
+    saveBtn.onclick = () => {
+      let finalPath = null;
+      if (this.mode === 'save') {
+        const filename = this.filenameInput?.value?.trim() || 'Untitled.txt';
+        finalPath = `${this.currentPath}/${filename}`.replace(/\/+/g, '/');
+      } else {
+        finalPath = this.selectedPath;
+      }
+
+      if (finalPath) {
+        this.closeSelector(finalPath);
+      }
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'ps-cancel-btn';
+    cancelBtn.onclick = () => {
+      this.closeSelector(null);
+    };
+
+    buttonContainer.appendChild(saveBtn);
+    buttonContainer.appendChild(cancelBtn);
+    bottomPanel.appendChild(buttonContainer);
+
+    appMain.appendChild(bottomPanel);
+
+    this.pathInput = pathInput;
+    this.sidebar = sidebar;
+    this.fileListContainer = fileListContainer;
+    this.filenameInput = filenameInput;
+    this.app.setApp();
+    if (this.mode === 'save' && this.defaultFileName && this.filenameInput) {
+      this.filenameInput.value = this.defaultFileName;
+    }
+    this.updatePathSelector();
+  }
+
+  closeSelector(result) {
+    if (this.parentModal) {
+      const index = this.parentModal.childApps.indexOf(this.app);
+      if (index > -1) {
+        this.parentModal.childApps.splice(index, 1);
+      }
+    }
+    this.app.handleClose();
+    if (this.parentModal) {
+      this.parentModal.unblockWindow();
+      this.parentModal.setActiveWindow();
+    }
+    this.callback(result);
+  }
+
+  updatePathSelector() {
+    this.updateSidebar();
+    this.updateFileList();
+  }
+
+  updateSidebar() {
+    if (!this.sidebar) return;
+    this.sidebar.innerHTML = '';
+
+    const items = [
+      { name: 'Home', path: '/home' },
+      { name: 'Desktop', path: '/bin/desktop' },
+      { name: 'Root', path: '/' }
+    ];
+
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'ps-sidebar-item';
+      if (this.currentPath === item.path) {
+        div.classList.add('active');
+      }
+      div.innerHTML = `${icons.folder} ${item.name}`;
+
+      div.onmouseover = () => {
+        if (this.currentPath !== item.path) {
+          div.style.background = 'rgba(0,255,0,0.05)';
+        }
+      };
+      div.onmouseout = () => {
+        if (this.currentPath !== item.path) {
+          div.style.background = 'transparent';
+        }
+      };
+
+      div.onclick = () => {
+        this.currentPath = item.path;
+        this.pathInput.value = this.currentPath;
+        this.updatePathSelector();
+      };
+
+      this.sidebar.appendChild(div);
+    });
+  }
+
+  updateFileList() {
+    if (!this.fileListContainer) return;
+    this.fileListContainer.innerHTML = '';
+
+    try {
+      const files = fileSystem.ls(this.currentPath) || [];
+
+      files.forEach(file => {
+        const div = document.createElement('div');
+        div.className = 'ps-file-item';
+        if (this.selectedPath === `${this.currentPath}/${file.name}`.replace(/\/+/g, '/')) {
+          div.classList.add('selected');
+        }
+
+        const icon = file.type === 'directory' ? icons.folder : (file.type === 'link' ? icons.shortcut : icons.file);
+        div.innerHTML = `${icon} ${file.name}`;
+
+        div.onmouseover = () => {
+          div.style.background = 'rgba(0,255,0,0.1)';
+        };
+        div.onmouseout = () => {
+          if (this.selectedPath !== `${this.currentPath}/${file.name}`.replace(/\/+/g, '/')) {
+            div.style.background = 'transparent';
+          }
+        };
+
+        div.onclick = () => {
+          if (file.type === 'directory') {
+            this.currentPath = `${this.currentPath}/${file.name}`.replace(/\/+/g, '/');
+            this.pathInput.value = this.currentPath;
+            this.updatePathSelector();
+          } else if (file.type === 'link') {
+            const targetPath = file.target;
+            const targetParts = targetPath.split('/').filter(p => p);
+            const targetFilename = targetParts.pop();
+            const targetDirPath = '/' + targetParts.join('/');
+            this.currentPath = targetDirPath || '/';
+            this.pathInput.value = this.currentPath;
+            this.selectedPath = targetPath.replace(/\/+/g, '/');
+            this.updatePathSelector();
+          } else {
+            this.selectedPath = `${this.currentPath}/${file.name}`.replace(/\/+/g, '/');
+            if (this.mode === 'save') {
+              this.pathInput.value = this.currentPath;
+              if (this.filenameInput) {
+                this.filenameInput.value = file.name;
+              }
+            } else {
+              this.pathInput.value = this.selectedPath;
+            }
+            this.updateFileList();
+          }
+        };
+
+        this.fileListContainer.appendChild(div);
+      });
+
+      if (files.length === 0) {
+        const emptyMsg = document.createElement('p');
+        emptyMsg.textContent = 'Folder is empty';
+        emptyMsg.className = 'ps-empty-msg';
+        this.fileListContainer.appendChild(emptyMsg);
+      }
+    } catch (e) {
+      const errorMsg = document.createElement('p');
+      errorMsg.textContent = 'Error loading files';
+      errorMsg.className = 'ps-error-msg';
+      this.fileListContainer.appendChild(errorMsg);
+    }
+  }
 }
 
 class VideoPlayer {
   constructor(args = null, path = null) {
     path = path || args?.split(' -')[1] || null;
-    this.app = new Modal("Video Player");
+    this.iconHtml = icons.video;
+    this.app = new Modal("Video Player", this.iconHtml);
     this.appMain = this.app.appMain;
     this.app.setApp();
     this.app.setupInfoBtn('Video Player',
@@ -3317,7 +3677,7 @@ class VideoPlayer {
   resetTimeControls() {
     if (this.mouseTimeout) clearTimeout(this.mouseTimeout);
     this.mouseTimeout = setTimeout(() => this.hideControls(), 3000);
-    setTimeout(() => this.showControls(), 10);
+    setTimeout(() => this.showControls(), 0);
   }
   async togglePlayVideo() {
     try {
@@ -3381,7 +3741,8 @@ class VideoPlayer {
 class AudioPlayer {
   constructor(args = null, path = null) {
     path = path || args?.split(' -')[1] || null;
-    this.app = new Modal("Audio Player");
+    this.iconHtml = icons.audio;
+    this.app = new Modal("Audio Player", this.iconHtml);
     this.appMain = this.app.appMain;
     this.app.setupExitBtn();
     this.app.setApp();
@@ -3546,7 +3907,8 @@ class AudioPlayer {
 class Browser {
   constructor(args = null, path = null) {
     path = path || args?.split(' -')[1] || null;
-    this.app = new Modal("Browser");
+    this.iconHtml = icons.browser;
+    this.app = new Modal("Browser", this.iconHtml);
     this.appMain = this.app.appMain;
     this.iframe = document.createElement('iframe');
     this.iframe.className = 'browser-iframe';
@@ -3579,7 +3941,8 @@ class Browser {
 
 class TaskManager {
   constructor(args = null, path = null) {
-    this.app = new Modal("Task Manager");
+    this.iconHtml = icons.taskManager;
+    this.app = new Modal("Task Manager", this.iconHtml);
     this.app.setApp();
     this.app.setupInfoBtn('Task Manager',
       'Task Manager shows running apps, process status, and browser power info so you can inspect or stop tasks.'
@@ -3686,8 +4049,8 @@ class TaskManager {
         if (longPressTarget) {
           this.clearSelection();
           longPressTarget.classList.add('selected');
-          const rootIndex = parseInt(longPressTarget.dataset.index ?? longPressTarget.dataset.parentIndex);
-          const childIndex = longPressTarget.dataset.childIndex !== undefined ? parseInt(longPressTarget.dataset.childIndex) : null;
+          const rootIndex = parseInt(longPressTarget.dataset.index ?? longPressTarget.dataset.parentIndex, 10);
+          const childIndex = longPressTarget.dataset.childIndex !== undefined ? parseInt(longPressTarget.dataset.childIndex, 10) : null;
           this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
         } else {
           this.clearSelection();
@@ -3736,6 +4099,7 @@ class TaskManager {
       const newHtml = this.renderProcessTree(rootApps) ||
         '<div class="tm-empty">No running applications</div>';
       if (appsList.innerHTML !== newHtml) {
+        this.app.removeAllListeners(appsList);
         appsList.innerHTML = newHtml;
         this.attachProcessListeners(appsList);
       }
@@ -3743,13 +4107,14 @@ class TaskManager {
   }
 
   async getBrowserBatteryInfo() {
-    if (!navigator.getBattery) {
+    if (!navigator.getBattery && !navigator.battery) {
       return {
         supported: false
       };
     }
     try {
-      const battery = await navigator.getBattery();
+      const battery = navigator.battery || await navigator.getBattery();
+      if (!battery) return { supported: false };
       return {
         supported: true,
         level: Math.round(battery.level * 100),
@@ -3923,7 +4288,7 @@ class TaskManager {
       this.app.addTrackedListener(btn, "click", (e) => {
         e.stopPropagation();
         const item = btn.closest(".tm-process-item");
-        const index = parseInt(item.dataset.index);
+        const index = parseInt(item.dataset.index, 10);
         const apps = this.getApplications();
         const app = apps[index];
 
@@ -3944,27 +4309,20 @@ class TaskManager {
         this.clearSelection();
         item.classList.add("selected");
 
-        const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex);
-        const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex) : null;
+        const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex, 10);
+        const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex, 10) : null;
         this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
       });
 
       this.app.addTrackedListener(item, "dblclick", (e) => {
         if (e.target.classList.contains("tm-expand-btn")) return;
-        const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex);
-        const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex) : null;
+        const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex, 10);
+        const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex, 10) : null;
         const app = this.getApplications()[rootIndex];
         const targetApp = childIndex !== null && app?.childApps ? app.childApps[childIndex] : app;
         if (targetApp && targetApp.modWindow) {
-          targetApp.setActiveWindow();
+          targetApp.checkBlocking(null, true);
         }
-      });
-
-      this.app.addTrackedListener(item, "contextmenu", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) return;
-        this.showContextMenu(e, item);
       });
     });
 
@@ -3974,12 +4332,10 @@ class TaskManager {
       }
     });
     this.app.addTrackedListener(container, "contextmenu", (e) => {
-      if (e.target.closest('.tm-process-item')) return;
       e.preventDefault();
       e.stopPropagation();
       if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) return;
-      this.clearSelection();
-      this.showBackgroundContextMenu(e);
+      this.showContextMenu(e);
     });
   }
 
@@ -3988,110 +4344,81 @@ class TaskManager {
     this.selectedApp = null;
   }
 
-  showContextMenu(e, item) {
-    if (this.contextMenu) this.contextMenu.remove();
-    const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex);
-    const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex) : null;
-    const apps = this.getApplications();
-    const app = apps[rootIndex];
-    const targetApp = childIndex !== null && app?.childApps ? app.childApps[childIndex] : app;
-    if (!targetApp) return;
-
-    this.clearSelection();
-    item.classList.add("selected");
-    this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
-
-    const isRootItem = item.dataset.child === "false";
-    const rootHasChildren = isRootItem && app?.childApps && app.childApps.length > 0;
-    const isExpanded = rootHasChildren && this.expandedApps.has(app);
-
-    this.contextMenu = document.createElement("div");
-    this.contextMenu.className = "context-menu";
-
-    let html = `
-      <div class="menu-item open">Activate</div>
-      <div class="menu-item end">End Task</div>
-    `;
-    if (rootHasChildren) {
-      html += `
-        <div class="menu-item ${isExpanded ? 'collapse' : 'expand'}">${isExpanded ? 'Collapse' : 'Expand'}</div>
-      `;
-    }
-    html += `
-      <div class="menu-item refresh">Refresh List</div>
-    `;
-
-    this.contextMenu.innerHTML = html;
-    this.appMain.appendChild(this.contextMenu);
-
-    const closeMenu = () => {
-      this.contextMenu?.remove();
-      this.contextMenu = null;
-    };
-
-    const activateItem = () => {
-      if (targetApp && targetApp.modWindow) targetApp.setActiveWindow();
-      closeMenu();
-    };
-    const endItem = () => {
-      this.closeAppAndChildren(targetApp);
-      this.clearSelection();
-      this.updateProcessList();
-      closeMenu();
-    };
-    const toggleExpand = () => {
-      if (!rootHasChildren) return;
-      if (isExpanded) this.expandedApps.delete(app);
-      else this.expandedApps.add(app);
-      this.updateProcessList();
-      closeMenu();
-    };
-    const refreshList = () => {
-      this.updateProcessList();
-      closeMenu();
-    };
-
-    this.contextMenu.querySelector('.open').onclick = activateItem;
-    this.contextMenu.querySelector('.end').onclick = endItem;
-    if (rootHasChildren) this.contextMenu.querySelector(isExpanded ? '.collapse' : '.expand').onclick = toggleExpand;
-    this.contextMenu.querySelector('.refresh').onclick = refreshList;
-
-    const rect = this.app.modWindow.getBoundingClientRect();
-    const x = Math.max(10, Math.min(e.pageX - rect.left - window.scrollX, rect.width - this.contextMenu.offsetWidth));
-    const y = Math.max(10, Math.min(e.pageY - rect.top - window.scrollY, rect.height - this.contextMenu.offsetHeight));
-    this.contextMenu.style.left = `${x}px`;
-    this.contextMenu.style.top = `${y}px`;
-
-    this.app.addTrackedListener(document, "click", (e) => {
-      if (!e.target.closest(".context-menu")) closeMenu();
-    }, { once: true });
+  closeContextMenu() {
+    this.contextMenu?.remove();
+    this.contextMenu = null;
   }
 
-  showBackgroundContextMenu(e) {
+  showContextMenu(e) {
     if (this.contextMenu) this.contextMenu.remove();
-    this.contextMenu = document.createElement("div");
-    this.contextMenu.className = "context-menu";
-    this.contextMenu.innerHTML = `<div class="menu-item refresh">Refresh List</div>`;
-    this.appMain.appendChild(this.contextMenu);
-
-    const closeMenu = () => {
-      this.contextMenu?.remove();
-      this.contextMenu = null;
-    };
-
-    this.contextMenu.querySelector('.refresh').onclick = () => {
-      this.updateProcessList();
-      closeMenu();
-    };
-
-    const rect = this.app.modWindow.getBoundingClientRect();
-    const x = Math.max(10, Math.min(e.pageX - rect.left - window.scrollX, rect.width - this.contextMenu.offsetWidth));
-    const y = Math.max(10, Math.min(e.pageY - rect.top - window.scrollY, rect.height - this.contextMenu.offsetHeight));
-    this.contextMenu.style.left = `${x}px`;
-    this.contextMenu.style.top = `${y}px`;
-
+    const item = e.target.closest('.tm-process-item');
+    this.clearSelection();
+    const items = [];
+    let targetApp = null;
+    if (item) {
+      const rootIndex = parseInt(item.dataset.index ?? item.dataset.parentIndex, 10);
+      const childIndex = item.dataset.childIndex !== undefined ? parseInt(item.dataset.childIndex, 10) : null;
+      const apps = this.getApplications();
+      const app = apps[rootIndex];
+      targetApp = childIndex !== null && app?.childApps ? app.childApps[childIndex] : app;
+      if (targetApp) {
+        console.log(targetApp.appName);
+        item.classList.add("selected");
+        this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
+        const isRootItem = item.dataset.child === "false";
+        const rootHasChildren = isRootItem && app?.childApps && app.childApps.length > 0;
+        const isExpanded = rootHasChildren && this.expandedApps.has(app);
+        items.push({
+          iconHtml: icons.activate,
+          label: 'Activate',
+          className: 'open',
+          onClick: () => {
+            if (targetApp && targetApp.modWindow) targetApp.setActiveWindow(true);
+          }
+        });
+        items.push({
+          iconHtml: icons.close,
+          label: 'End Task',
+          className: 'end',
+          onClick: () => {
+            this.closeAppAndChildren(targetApp);
+            this.clearSelection();
+            this.updateProcessList();
+          }
+        });
+        if (rootHasChildren) {
+          items.push({
+            iconHtml: isExpanded ? icons.collapse : icons.expand,
+            label: isExpanded ? 'Collapse' : 'Expand',
+            className: isExpanded ? 'collapse' : 'expand',
+            onClick: () => {
+              if (isExpanded) this.expandedApps.delete(app);
+              else this.expandedApps.add(app);
+              this.updateProcessList();
+            }
+          });
+        }
+      }
+    }
+    items.push({
+      iconHtml: icons.refresh,
+      label: 'Refresh List',
+      className: 'refresh',
+      onClick: () => {
+        this.updateProcessList();
+        this.closeContextMenu();
+      }
+    });
+    this.contextMenu = ContextMenuBuilder.renderMenu({
+      event: e,
+      headerIconHtml: icons.taskManager,
+      headerLabelText: (item && targetApp) ? targetApp.appName : 'Task Manager',
+      items,
+      appendTo: this.appMain,
+      containerRect: this.app.modWindow.getBoundingClientRect()
+    });
     this.app.addTrackedListener(document, "click", (e) => {
-      if (!e.target.closest(".context-menu")) closeMenu();
+      this.closeContextMenu();
     }, { once: true });
   }
 

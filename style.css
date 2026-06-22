@@ -1,4 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap");
+@import url("taskbar.css");
+@import url("path-selector.css");
 
 :root {
   --background: #1a1a1a;
@@ -9,14 +11,39 @@
   --text: #e0e0e0;
 }
 
+*::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #222;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #444 0%, #333 100%);
+  border: 1px solid #555;
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #555 0%, #444 100%);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  border-color: #0078d4;
+}
+
 body {
   margin: 0;
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-direction: column;
   background: var(--background);
   font-family: "Ubuntu Mono", monospace;
+  overflow: hidden;
 }
 
 .desktop-grid-overlay,
@@ -24,8 +51,8 @@ body {
   position: fixed;
   top: 0;
   left: 0;
+  height: calc(100vh - 40px);
   width: 100%;
-  height: 100%;
   padding: 20px 0 0 20px;
   display: grid;
   grid-auto-flow: column;
@@ -34,6 +61,10 @@ body {
   gap: 19px;
   align-content: start;
   box-sizing: border-box;
+}
+
+.desktop {
+  min-height: 0;
 }
 
 .desktop-grid-overlay {
@@ -76,7 +107,7 @@ body {
   text-align: center;
   color: var(--text);
   pointer-events: auto;
-  transition: all 0.2s;
+  transition: all 0.1s;
   user-select: none;
   overflow: hidden;
   gap: 7px;
@@ -227,19 +258,13 @@ body {
   z-index: 10;
   transition: none;
   box-sizing: border-box;
-  transform: scale(0);
-  opacity: 0;
-  animation: anShow 0.3s cubic-bezier(0.3, 1.6, 0.6, 1) 0.2s forwards;
+  transform: none;
+  opacity: 1;
+  animation: anShow 0.3s cubic-bezier(0.3, 1.6, 0.6, 1);
   min-width: 80px;
   min-height: 35px;
   display: flex;
   flex-direction: column;
-}
-
-.modal-window.dialog.active {
-  opacity: 1;
-  pointer-events: all;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
 }
 
 .app-size {
@@ -254,10 +279,11 @@ body {
   width: 20px;
   height: 20px;
   cursor: se-resize;
-  background: linear-gradient(135deg, transparent 50%, rgba(0, 255, 0, 0.3) 50%);
+  background: rgba(0, 255, 0, 0.3);
   border-radius: 0 0 5px 0;
   touch-action: none;
   z-index: 100;
+  clip-path: polygon(100% 0%, 100% 100%, 0% 100%);
 }
 
 .resize-handle:active,
@@ -277,11 +303,9 @@ html:has(.modal-window.resizing) * {
   cursor: se-resize !important;
 }
 
-.modal-window:focus {
-  outline: none;
-}
-
+.modal-window:focus-within,
 .modal-window.active {
+  outline: none;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
   transition: none;
   border-color: rgba(0, 255, 0, 0.3);
@@ -289,15 +313,20 @@ html:has(.modal-window.resizing) * {
 
 .modal-window.maximize {
   width: 100vw !important;
-  height: 100vh !important;
+  height: calc(100vh - 40px) !important;
   top: 0 !important;
+  bottom: 0 !important;
   left: 0 !important;
+  border-radius: 0;
+  border: 0px solid transparent;
 }
 
 .modal-window.minimize {
-  height: 35px !important;
-  top: 90% !important;
+  transform: scale(0) !important;
+  top: 100vh !important;
   left: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 @keyframes anShow {
@@ -399,7 +428,6 @@ html:has(.modal-window.resizing) * {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding-left: 6px;
 }
 
 .title {
@@ -417,7 +445,7 @@ html:has(.modal-window.resizing) * {
 
 .app-io {
   height: 100%;
-  transition: all 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out, padding 0;
   overflow-y: auto;
   color: var(--text);
   box-sizing: border-box;
@@ -478,6 +506,11 @@ html:has(.modal-window.resizing) * {
   position: relative;
 }
 
+.o-line::selection,
+.i-line::selection {
+  background: rgba(0, 255, 0, 0.3);
+}
+
 .prompt {
   color: var(--primary);
   margin-right: 8px;
@@ -497,10 +530,6 @@ html:has(.modal-window.resizing) * {
   white-space: pre-wrap;
   word-break: break-all;
   position: relative;
-}
-
-.stdin::selection {
-  background: rgba(0, 255, 0, 0.3);
 }
 
 .stdin::after {
@@ -827,7 +856,7 @@ html:has(.modal-window.resizing) * {
   border: 1px solid rgba(0, 255, 0, 0.2);
   border-radius: 0 8px 8px 0;
   padding: 10px;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -853,24 +882,58 @@ html:has(.modal-window.resizing) * {
 .sidebar-items {
   display: flex;
   flex-direction: column;
-  gap: 3px;
   flex: 1;
+  gap: 2px;
+  overflow: auto;
 }
 
-.sidebar-item {
-  padding: 6px 8px;
-  border-radius: 4px;
+.tree-subtree {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+}
+
+.tree-subtree .tree-item {
+  margin-top: 2px;
+}
+
+.tree-subtree .tree-item:first-child {
+  margin-top: 0;
+}
+
+.sidebar-item,
+.tree-item {
+  padding: 0 6px;
+  height: 25px;
+  border-radius: 3px;
   cursor: pointer;
   font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #b0b0b0;
   transition: all 0.2s;
   user-select: none;
+  border: 1px solid transparent;
+  line-height: 24px;
+}
+
+.sidebar-item:hover,
+.tree-item:hover {
+  background: rgba(0, 255, 0, 0.1);
+  color: var(--primary);
+}
+
+
+.sidebar-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .sidebar-item:hover {
@@ -886,12 +949,17 @@ html:has(.modal-window.resizing) * {
   margin-left: auto;
   opacity: 0;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 11px;
   transition: opacity 0.2s;
+  color: #b0b0b0;
 }
 
 .sidebar-item:hover .bookmark-remove {
   opacity: 1;
+}
+
+.bookmark-remove:hover {
+  color: var(--primary);
 }
 
 .add-bookmark-btn {
@@ -912,6 +980,35 @@ html:has(.modal-window.resizing) * {
 .add-bookmark-btn:hover {
   background: rgba(0, 255, 0, 0.15);
   border-color: var(--primary);
+}
+
+.tree-toggle:hover {
+  color: var(--primary);
+}
+
+.tree-toggle {
+  font-size: 10px;
+  color: #888;
+  transition: transform 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 100%;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.tree-item.expanded .tree-toggle {
+  transform: rotate(90deg);
+}
+
+.tree-item>span:last-child {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .explorer-main {
@@ -1055,7 +1152,7 @@ html:has(.modal-window.resizing) * {
 .file-list {
   width: 100%;
   padding: 0 0 10px 10px;
-  overflow-y: auto;
+  overflow: auto;
   box-sizing: border-box;
   flex-grow: 1;
   user-select: none;
@@ -1139,13 +1236,25 @@ html:has(.modal-window.resizing) * {
   background: rgba(0, 255, 0, 0.1);
 }
 
+.file-item.list {
+  justify-items: start;
+  min-height: 32px;
+  height: 32px;
+}
+
+.file-item.list span {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
 .file-item.compact {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   gap: 4px;
-  width: 80px;
+  width: 85px;
   padding: 5px;
   margin: 5px;
   font-size: 11px;
@@ -1153,10 +1262,19 @@ html:has(.modal-window.resizing) * {
   flex: 0 0 auto;
 }
 
-.file-item.compact .file-icon svg {
-  font-size: 50px;
+.file-item.compact .file-icon {
   width: 50px;
   height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.file-item.compact .file-icon svg {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
 }
 
 .file-item.compact .file-name {
@@ -1201,8 +1319,24 @@ html:has(.modal-window.resizing) * {
   font-size: 14px;
 }
 
+#path-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#path-file-list {
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+#path-sidebar>div,
+#path-file-list>div {
+  transition: all 0.2s ease;
+}
+
 .context-menu {
-  position: fixed;
+  position: absolute;
   background: rgba(42, 42, 42, 0.8);
   border: 1px solid #00ff0030;
   border-radius: 0 8px 8px;
@@ -1214,6 +1348,7 @@ html:has(.modal-window.resizing) * {
   backdrop-filter: blur(4px);
   pointer-events: auto;
   max-width: 300px;
+  animation: anShow 0.3s cubic-bezier(0.3, 1.6, 0.6, 1);
 }
 
 .context-menu hr,
@@ -1239,7 +1374,7 @@ html:has(.modal-window.resizing) * {
 }
 
 .menu-item:hover {
-  background: #00ff0010;
+  background: rgba(0, 255, 0, 0.1);
 }
 
 .menu-item svg {
@@ -1248,63 +1383,69 @@ html:has(.modal-window.resizing) * {
   margin-right: 10px;
 }
 
-.menu-item.open {
+.menu-item.open:hover {
   color: #66ffcc;
 }
 
-.menu-item.end {
+.menu-item.end:hover {
   color: #ff5f56;
 }
 
-.menu-item.open-as {
+.menu-item.open-as:hover {
   color: #ff99ff;
 }
 
-.menu-item.unarchive {
+.menu-item.unarchive:hover {
   color: #ffcc66;
 }
 
-.menu-item.open-folder {
+.menu-item.open-folder:hover {
   color: #ffaa66;
 }
 
-.menu-item.copyPath {
+.menu-item.copyPath:hover {
   color: #ffff66;
 }
 
-.menu-item.rename {
+.menu-item.rename:hover {
   color: #66ff66;
 }
 
-.menu-item.delete {
+.menu-item.delete,
+.menu-item.end {
   color: #ff6666;
 }
 
-.menu-item.copy {
+.menu-item.delete:hover,
+.menu-item.end:hover {
+  background-color: rgba(255, 102, 102, 0.1);
+}
+
+.menu-item.copy:hover {
   color: #66ccff;
 }
 
-.menu-item.cut {
+.menu-item.cut:hover {
   color: #ffaa44;
 }
 
-.menu-item.paste {
+.menu-item.paste:hover {
   color: #88ff88;
 }
 
-.menu-item.open-new-window {
+.menu-item.open-new-window:hover {
   color: #88ddff;
 }
 
-.menu-item.new-folder {
+.menu-item.new-folder:hover {
   color: #66b3ff;
 }
 
-.menu-item.new-file {
+.menu-item.new-file:hover {
   color: #88ff88;
 }
 
-.menu-item.refresh {
+.menu-item.refresh:hover {
   color: #ffcc66;
 }
 
@@ -1878,8 +2019,6 @@ html:has(.modal-window.resizing) * {
 }
 
 .dialog .app-io {
-  display: flex;
-  flex-direction: column;
   padding: 30px 40px;
   align-items: center;
   background-color: transparent;
@@ -2422,41 +2561,6 @@ html:has(.modal-window.resizing) * {
   transform: translateY(1px);
 }
 
-.task-manager::-webkit-scrollbar,
-.tm-content::-webkit-scrollbar,
-.tm-list-main::-webkit-scrollbar,
-.tm-tabs::-webkit-scrollbar,
-.tm-tab-content::-webkit-scrollbar {
-  width: 16px;
-}
-
-.task-manager::-webkit-scrollbar-track,
-.tm-content::-webkit-scrollbar-track,
-.tm-list-main::-webkit-scrollbar-track,
-.tm-tabs::-webkit-scrollbar-track,
-.tm-tab-content::-webkit-scrollbar-track {
-  background: #222;
-}
-
-.task-manager::-webkit-scrollbar-thumb,
-.tm-content::-webkit-scrollbar-thumb,
-.tm-list-main::-webkit-scrollbar-thumb,
-.tm-tabs::-webkit-scrollbar-thumb,
-.tm-tab-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #444 0%, #333 100%);
-  border: 1px solid #555;
-  border-radius: 2px;
-}
-
-.task-manager::-webkit-scrollbar-thumb:hover,
-.tm-content::-webkit-scrollbar-thumb:hover,
-.tm-list-main::-webkit-scrollbar-thumb:hover,
-.tm-tabs::-webkit-scrollbar-thumb:hover,
-.tm-tab-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #555 0%, #444 100%);
-  border-color: #0078d4;
-}
-
 .mac-btn {
   font-family: inherit;
   font-size: 12px;
@@ -2689,4 +2793,15 @@ html:has(.modal-window.resizing) * {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+@media (max-width: 768px) {
+  .modal-window.maximize {
+    height: calc(100vh - 34px) !important;
+  }
+
+  .desktop-grid-overlay,
+  .desktop {
+    height: calc(100vh - 34px);
+  }
 }

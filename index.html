@@ -29,7 +29,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v5.2.1';
+    const ver = 'v6.0.0';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -88,8 +88,12 @@
       compactView: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 1C9.65685 1 11 2.34315 11 4V8C11 9.65685 9.65685 11 8 11H4C2.34315 11 1 9.65685 1 8V4C1 2.34315 2.34315 1 4 1H8ZM8 3C8.55228 3 9 3.44772 9 4V8C9 8.55228 8.55228 9 8 9H4C3.44772 9 3 8.55228 3 8V4C3 3.44772 3.44772 3 4 3H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 13C9.65685 13 11 14.3431 11 16V20C11 21.6569 9.65685 23 8 23H4C2.34315 23 1 21.6569 1 20V16C1 14.3431 2.34315 13 4 13H8ZM8 15C8.55228 15 9 15.4477 9 16V20C9 20.5523 8.55228 21 8 21H4C3.44772 21 3 20.5523 3 20V16C3 15.4477 3.44772 15 4 15H8Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M23 4C23 2.34315 21.6569 1 20 1H16C14.3431 1 13 2.34315 13 4V8C13 9.65685 14.3431 11 16 11H20C21.6569 11 23 9.65685 23 8V4ZM21 4C21 3.44772 20.5523 3 20 3H16C15.4477 3 15 3.44772 15 4V8C15 8.55228 15.4477 9 16 9H20C20.5523 9 21 8.55228 21 8V4Z" fill="currentColor"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M20 13C21.6569 13 23 14.3431 23 16V20C23 21.6569 21.6569 23 20 23H16C14.3431 23 13 21.6569 13 20V16C13 14.3431 14.3431 13 16 13H20ZM20 15C20.5523 15 21 15.4477 21 16V20C21 20.5523 20.5523 21 20 21H16C15.4477 21 15 20.5523 15 20V16C15 15.4477 15.4477 15 16 15H20Z" fill="currentColor"></path> </g></svg>',
       files: '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path fill="currentColor" d="M128 384v448h768V384H128zm-32-64h832a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32zm64-128h704v64H160zm96-128h512v64H256z"></path></g></svg>',
       apps: '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="30" width="160" height="140" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="20" y="30" width="160" height="35" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="35" cy="47" r="5" fill="currentColor"/><circle cx="50" cy="47" r="5" fill="currentColor"/><circle cx="65" cy="47" r="5" fill="currentColor"/><polyline points="70,95 40,118 70,141" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><polyline points="90,85 110,151" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><polyline points="130,95 160,118 130,141" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      close: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <g> <path d="M9 9L11.9999 11.9999M11.9999 11.9999L14.9999 14.9999M11.9999 11.9999L9 14.9999M11.9999 11.9999L14.9999 9M12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path> </g> </g></svg>',
+      activate: '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path d="M15 5.5a4.394 4.394 0 0 1-4 4.5 2.955 2.955 0 0 0-.2-1A3.565 3.565 0 0 0 14 5.5a3.507 3.507 0 0 0-7-.3A3.552 3.552 0 0 0 6 5a4.622 4.622 0 0 1 4.5-4A4.481 4.481 0 0 1 15 5.5zM5.5 6a4.5 4.5 0 1 0 0 9.001 4.5 4.5 0 0 0 0-9z"></path></g></svg>',
+      collapse: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns" fill="currentColor"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <defs> </defs> <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage"> <g sketch:type="MSLayerGroup" transform="translate(-362.000000, -1193.000000)" fill="currentColor"> <path d="M387.784,1202.18 L394,1196 L391,1193 L384.826,1199.2 L382.608,1196.97 C382.129,1196.48 381.642,1195.97 381.062,1195.97 C380.48,1195.97 380.011,1196.44 380.012,1197.03 L380.023,1205.85 C380.024,1206.16 380.164,1206.44 380.377,1206.63 C380.57,1206.84 380.842,1206.99 381.151,1206.99 L389.921,1207 C390.501,1207 390.972,1206.53 390.971,1205.94 C390.97,1205.36 390.292,1204.7 390.002,1204.41 L387.784,1202.18 L387.784,1202.18 Z M375.629,1211.36 C375.439,1211.15 375.173,1211.01 374.868,1211.01 L366.244,1211 C365.674,1211 365.212,1211.46 365.212,1212.03 C365.213,1212.6 365.879,1213.25 366.165,1213.53 L368.346,1215.71 L362,1222 L365,1225 L371.254,1218.62 L373.435,1220.8 C373.906,1221.27 374.386,1221.78 374.956,1221.78 C375.527,1221.78 375.989,1221.32 375.988,1220.75 L375.977,1212.12 C375.977,1211.82 375.839,1211.55 375.629,1211.36 L375.629,1211.36 Z" sketch:type="MSShapeGroup"> </path> </g> </g> </g></svg>',
+      expand: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <path d="M14 10L21 3M21 3H16.5M21 3V7.5M10 14L3 21M3 21H7.5M3 21L3 16.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>',
     };
-    let iDBFS, fileSystem, desktop;
+    let iDBFS, fileSystem, desktop, taskbar;
     window.openApplications = [];
 
     class IndexedDBFileSystem {
@@ -182,7 +186,9 @@
       iDBFS = new IndexedDBFileSystem();
       fileSystem = await FileSystem.create();
       desktop = new Desktop();
+      taskbar = new TaskBar();
       new Terminal();
+
     }
     async function copyText(text) {
       let copySuccess = false;
@@ -640,13 +646,13 @@
           setTimeout(() => {
             try {
               const file = this._resolvePath(path);
-              if (!file || file.type !== 'file') {
+              if (!file) {
                 throw new Error(`File not found: ${path}`);
               }
-              if (file.parameters.encoding === 'binary') {
-                resolve(new Blob([file.content]));
-              } else {
+              if (file.type === 'file') {
                 resolve(file.content);
+              } else {
+                throw new Error(`Not a file: ${path}`);
               }
             } catch (e) {
               reject(e);
@@ -1443,8 +1449,8 @@
       getOccupiedCellIndexes(icons, rows) {
         const occupied = new Set();
         icons.forEach(icon => {
-          const col = parseInt(icon.style.gridColumnStart || '1', 10) - 1;
-          const row = parseInt(icon.style.gridRowStart || '1', 10) - 1;
+          const col = parseInt(icon.style.gridColumnStart || 1, 10) - 1;
+          const row = parseInt(icon.style.gridRowStart || 1, 10) - 1;
           if (col >= 0 && row >= 0) {
             occupied.add(col * rows + row);
           }
@@ -1522,7 +1528,6 @@
         }
         return false;
       }
-
       handleDblClick(item) {
         const isLink = item.type === 'link';
         let path = null;
@@ -1551,6 +1556,7 @@
       }
       handleIconMouseDown(e) {
         e.stopPropagation();
+        this.setActiveDesktop();
         const icon = e.currentTarget;
         const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
         const currentIndex = icons.indexOf(icon);
@@ -1563,8 +1569,8 @@
           } else {
             const { rows } = this.getDesktopGridMetrics();
             const getGridIndex = (ico) => {
-              const col = parseInt(ico.style.gridColumnStart || '1', 10) - 1;
-              const row = parseInt(ico.style.gridRowStart || '1', 10) - 1;
+              const col = parseInt(ico.style.gridColumnStart || 1, 10) - 1;
+              const row = parseInt(ico.style.gridRowStart || 1, 10) - 1;
               return col * rows + row;
             };
             const currentGridIndex = getGridIndex(icon);
@@ -1748,7 +1754,7 @@
         const dy = touch.clientY - this.touchStartY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (this.touchTimer && !this.isTouchDragging && distance > 10) {
-          e.preventDefault();
+          if (e.preventDefault && e.cancelable) e.preventDefault();
           clearTimeout(this.touchTimer);
           this.touchTimer = null;
           this.isTouchDragging = true;
@@ -1761,7 +1767,7 @@
           }
         }
         if (this.isTouchDragging && this.draggedIcons.length > 0) {
-          e.preventDefault();
+          if (e.preventDefault && e.cancelable) e.preventDefault();
           const { desktopRect, paddingLeft, paddingTop, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
           const dropX = Math.max(0, touch.clientX - desktopRect.left - paddingLeft / 2);
           const dropY = Math.max(0, touch.clientY - desktopRect.top - paddingTop);
@@ -1823,8 +1829,9 @@
         this.touchTargetIcon = null;
       }
       showContextMenu(e) {
-        e.preventDefault?.();
+        if (e.preventDefault && e.cancelable) e.preventDefault();
         e.stopPropagation?.();
+        this.setActiveDesktop();
         if (this.contextMenu) {
           this.contextMenu.remove();
         }
@@ -1930,7 +1937,7 @@
             }
           });
         } else {
-          const openLabel = isFolder ? 'Open Folder' : 'Open File';
+          const openLabel = isFolder ? 'Open Folder' : single ? 'Open File' : 'Open All';
           const openIcon = isFolder ? icons.openFolder : single ? icons.openFile : icons.open;
           items.push({
             iconHtml: openIcon,
@@ -2093,19 +2100,6 @@
       copyCurrentDesktopPath() {
         copyText('/bin/desktop');
       }
-      renderContextMenuAtEvent(e) {
-        document.body.appendChild(this.contextMenu);
-        const touchPoint = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-        const clientX = typeof e.clientX === 'number' ? e.clientX : (touchPoint ? touchPoint.clientX : window.innerWidth / 2);
-        const clientY = typeof e.clientY === 'number' ? e.clientY : (touchPoint ? touchPoint.clientY : window.innerHeight / 2);
-        const x = Math.max(0, Math.min(clientX, window.innerWidth - this.contextMenu.offsetWidth));
-        const y = Math.max(0, Math.min(clientY, window.innerHeight - this.contextMenu.offsetHeight));
-        this.contextMenu.style.left = x + 'px';
-        this.contextMenu.style.top = y + 'px';
-        setTimeout(() => {
-          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
-        }, 0);
-      }
       closeContextMenu() {
         if (this.contextMenu) {
           this.contextMenu.remove();
@@ -2154,7 +2148,6 @@
             this.pendingTouchContextMenu = false;
             return;
           }
-          e.preventDefault();
           this.showContextMenu(e);
         });
 
@@ -2181,10 +2174,16 @@
         });
       }
 
-      setActiveDesktop() {
-        document.querySelectorAll('.modal-window').forEach(w => {
-          w.classList.remove('active');
+      unsetActiveWindows() {
+        this.desktop.classList.remove('active');
+        document.querySelectorAll(".modal-window").forEach((window) => {
+          window.classList.remove("active");
         });
+        taskbar?.updateTaskbar();
+      }
+
+      setActiveDesktop() {
+        this.unsetActiveWindows();
         this.desktop.classList.add('active');
         this.desktop.focus();
       }
@@ -2204,6 +2203,420 @@
             new Dialog("Error", `Failed to delete '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
           }
         });
+      }
+    }
+    class TaskBar {
+      constructor() {
+        const taskbar = document.getElementById('system-taskbar') || document.querySelector('.taskbar') || null;
+        if (taskbar) {
+          taskbar.remove?.();
+        }
+        this.taskbar = document.createElement('div');
+        this.taskbar.className = 'taskbar';
+        this.taskbar.id = 'system-taskbar';
+        document.body.appendChild(this.taskbar);
+        this.taskItems = new Map();
+
+        this.appsContainer = document.createElement('div');
+        this.appsContainer.className = 'taskbar-apps-container';
+        this.taskbar.appendChild(this.appsContainer);
+        this.hideChildrenMenuTimer = null;
+
+        this.__initSystemTray();
+        this.__startMonitoring();
+      }
+
+      __initSystemTray() {
+        this.systemTray = document.createElement('div');
+        this.systemTray.className = 'taskbar-system-tray';
+
+        this.clockItem = document.createElement('div');
+        this.clockItem.className = 'system-tray-item';
+        this.clockItem.innerHTML = '<div class="system-tray-text"></div>';
+        this.clockItem.title = 'Date and time';
+
+        this.batteryItem = document.createElement('div');
+        this.batteryItem.className = 'system-tray-item system-tray-battery';
+        this.batteryItem.innerHTML = `
+          <div class="battery-indicator normal">
+            <div class="battery-fill"></div>
+          <div class="battery-percent">X</div>
+          </div>
+        `;
+        this.batteryItem.title = 'Battery status';
+        this.batteryItem.style.cursor = 'pointer';
+        this.batteryItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.__showBatteryPopup();
+        });
+
+        this.systemTray.appendChild(this.clockItem);
+        this.systemTray.appendChild(this.batteryItem);
+        this.taskbar.appendChild(this.systemTray);
+
+        setInterval(() => this.__updateClock(), 1000);
+        this.__updateClock();
+
+        this.__initBattery();
+        setInterval(() => this.__updateBattery(), 10000);
+      }
+
+      __initBattery() {
+        if (!navigator.getBattery && !navigator.battery) {
+          this.batteryData = null;
+          this.batteryItem.title = 'Battery not available';
+          this.__updateBatteryUI();
+          return;
+        }
+
+        const getBatteryPromise = navigator.getBattery ?
+          navigator.getBattery() :
+          Promise.resolve(navigator.battery);
+
+        getBatteryPromise.then((battery) => {
+          this.batteryData = battery;
+          this.__updateBattery();
+
+          battery.addEventListener('chargingchange', () => this.__updateBattery());
+          battery.addEventListener('levelchange', () => this.__updateBattery());
+          battery.addEventListener('chargingtimechange', () => this.__updateBattery());
+          battery.addEventListener('dischargingtimechange', () => this.__updateBattery());
+        }).catch(() => {
+          this.batteryData = null;
+          this.batteryItem.title = 'Battery not available';
+          this.__updateBatteryUI();
+        });
+      }
+
+      __updateClock() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+
+        this.clockItem.querySelector('.system-tray-text').textContent = `${day}/${month} ${hours}:${minutes}`;
+      }
+
+      __updateBattery() {
+        if (!this.batteryData) {
+          this.__updateBatteryUI();
+          return;
+        }
+
+        const level = Math.round(this.batteryData.level * 100);
+        const charging = this.batteryData.charging;
+
+        this.batteryItem.dataset.level = level;
+        this.batteryItem.dataset.charging = charging;
+
+        this.__updateBatteryUI();
+      }
+
+      __updateBatteryUI() {
+        const indicator = this.batteryItem.querySelector('.battery-indicator');
+        const fill = this.batteryItem.querySelector('.battery-fill');
+        const percent = this.batteryItem.querySelector('.battery-percent');
+
+        if (!this.batteryData) {
+          fill.style.width = '0%';
+          percent.textContent = 'X';
+          percent.style.color = 'white';
+          return;
+        }
+
+        let level = Math.min(100, Math.round(this.batteryData.level * 100) || 0);
+        percent.style.color = (level < 50) ? 'white' : (level < 60) ? 'grey' : 'black';
+        fill.style.width = level + '%';
+        percent.textContent = level + '%';
+
+        indicator.classList.remove('critical', 'low', 'normal');
+        if (level < 20) {
+          indicator.classList.add('critical');
+        } else if (level < 50) {
+          indicator.classList.add('low');
+        } else {
+          indicator.classList.add('normal');
+        }
+      }
+
+      __showBatteryPopup() {
+        const oldPopup = document.querySelector('.system-tray-popup');
+        if (oldPopup) {
+          oldPopup.remove();
+          return;
+        }
+        const popup = document.createElement('div');
+        popup.className = 'system-tray-popup battery-popup';
+
+        if (!this.batteryData) {
+          popup.innerHTML = `
+            <div class="popup-title">Battery</div>
+            <div class="popup-item">
+              <span class="popup-label">Status:</span>
+              <span class="popup-value">Could not be detected</span>
+            </div>
+          `;
+        } else {
+          const level = Math.round(this.batteryData.level * 100);
+          const charging = this.batteryData.charging;
+          const timeToFull = this.batteryData.chargingTime;
+          const timeToEmpty = this.batteryData.dischargingTime;
+          const timeDisplay = charging && timeToFull !== Infinity ?
+            `${Math.floor(timeToFull / 60)} hours` :
+            !charging && timeToEmpty !== Infinity ?
+              `~${Math.floor(timeToEmpty / 60)} hours` :
+              '∞';
+
+          popup.innerHTML = `
+            <div class="popup-title">Battery</div>
+            <div class="popup-item">
+              <span class="popup-label">Charge level:</span>
+              <span class="popup-value">${level}%${charging ? ' • Charging' : ''}</span>
+            </div>
+            <div class="popup-item">
+              <span class="popup-label">Time ${charging ? 'to full' : 'remaining'}:</span>
+              <span class="popup-value">${timeDisplay}</span>
+            </div>
+          `;
+        }
+
+        document.body.appendChild(popup);
+        setTimeout(() => {
+          const closeHandler = (e) => {
+            if (!popup.contains(e.target) && !this.batteryItem.contains(e.target)) {
+              popup.remove();
+              document.removeEventListener('click', closeHandler);
+            }
+          };
+          document.addEventListener('click', closeHandler);
+        }, 0);
+      }
+
+      updateTaskbar() {
+        if (!this.taskbar) return;
+        if (!this.systemTray || this.systemTray.parentElement !== this.taskbar) {
+          this.__initSystemTray();
+        }
+
+        const apps = window.openApplications.filter(app =>
+          app && app.modWindow && app.modWindow.parentElement && !app.parentApp
+        );
+        const currentAppSet = new Set(apps);
+        const previousAppSet = new Set(this.taskItems.keys());
+
+        previousAppSet.forEach(app => {
+          if (!currentAppSet.has(app)) {
+            this.taskItems.get(app)?.remove();
+            this.taskItems.delete(app);
+          }
+        });
+
+        apps.forEach(app => {
+          if (!this.taskItems.has(app)) {
+            this.__createTaskItem(app);
+          } else {
+            this.__updateTaskItem(app);
+          }
+        });
+
+        if (this.systemTray && this.systemTray.parentElement === this.taskbar) {
+          this.taskbar.appendChild(this.systemTray);
+        }
+      }
+
+      __startMonitoring() {
+        this.updateTaskbar();
+        const methods = ['push', 'splice', 'pop', 'shift', 'unshift'];
+        methods.forEach(method => {
+          const original = window.openApplications[method];
+          window.openApplications[method] = function (...args) {
+            const result = original.apply(this, args);
+            setTimeout(() => taskbar.updateTaskbar(), 0);
+            return result;
+          };
+        });
+      }
+
+      __getAppId(app) {
+        return app.appName + '_' + app.modWindow.style.zIndex;
+      }
+
+      __getIconHtml(app) {
+        if (app.iconHtml) return app.iconHtml;
+        return icons.apps;
+      }
+
+      __activateApp(app) {
+        if (app.isMinimized || app.modWindow.classList.contains('active')) {
+          app.handleMinimize();
+          if (!app.isMinimized) {
+            app.checkBlocking(null, true);
+          } else {
+            this.updateTaskbar();
+          }
+        } else {
+          app.checkBlocking();
+        }
+      }
+      __createTaskItem(app) {
+        const item = document.createElement('div');
+        item.className = 'taskbar-item';
+
+        const icon = document.createElement('div');
+        icon.className = 'taskbar-item-icon';
+        icon.innerHTML = this.__getIconHtml(app);
+
+        const label = document.createElement('div');
+        label.className = 'taskbar-item-label';
+        label.textContent = app.appName;
+
+        const badge = document.createElement('div');
+        badge.className = 'taskbar-item-badge';
+        badge.style.display = 'none';
+
+        item.appendChild(icon);
+        item.appendChild(label);
+        item.appendChild(badge);
+
+        item.addEventListener('click', (e) => {
+          this.__activateApp(app);
+        });
+
+        item.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.__showContextMenu(e, app, item);
+        });
+
+        item.addEventListener('mouseenter', () => {
+          this.__clearChildrenMenuTimer();
+          this.__showChildrenMenu(item, app);
+        });
+        item.addEventListener('mouseleave', () => {
+          this.__clearChildrenMenuTimer();
+          this.hideChildrenMenuTimer = setTimeout(() => {
+            this.__hideChildrenMenu();
+            this.hideChildrenMenuTimer = null;
+          }, 500);
+        });
+
+        this.appsContainer.appendChild(item);
+        this.taskItems.set(app, item);
+        this.__updateTaskItem(app);
+      }
+
+      __updateTaskItem(app) {
+        const item = this.taskItems.get(app);
+        if (!item) return;
+        item.classList.toggle('active', app.modWindow.classList.contains('active'));
+        const badge = item.querySelector('.taskbar-item-badge');
+        if (app.childApps && app.childApps.length > 0) {
+          badge.textContent = app.childApps.length;
+          badge.style.display = 'flex';
+          setTimeout(() => badge.style.opacity = 1, 0);
+        } else {
+          badge.style.opacity = 0;
+        }
+      }
+      __clearChildrenMenuTimer() {
+        if (this.hideChildrenMenuTimer) {
+          clearTimeout(this.hideChildrenMenuTimer);
+          this.hideChildrenMenuTimer = null;
+        }
+      }
+      __showChildrenMenu(item, app) {
+        if (document.querySelector('.taskbar-context-menu') || !app.childApps || app.childApps.length === 0) return;
+        this.__hideChildrenMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'taskbar-children-menu';
+        menu.innerHTML = app.childApps.map((child, idx) =>
+          `<div class="taskbar-child-item" data-index="${idx}">${child.appName}</div>`
+        ).join('');
+
+        document.body.appendChild(menu);
+
+        menu.querySelectorAll('.taskbar-child-item').forEach(childItem => {
+          childItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const child = app.childApps[parseInt(e.target.dataset.index, 10)];
+            if (child) this.__activateApp(child);
+          });
+        });
+
+        menu.addEventListener('mouseenter', () => {
+          this.__clearChildrenMenuTimer();
+        });
+
+        menu.addEventListener('mouseleave', () => {
+          this.__clearChildrenMenuTimer();
+          this.hideChildrenMenuTimer = setTimeout(() => {
+            this.__hideChildrenMenu();
+            this.hideChildrenMenuTimer = null;
+          }, 500);
+        });
+        setTimeout(() => {
+          if (!menu || !menu.parentElement) return;
+
+          const itemRect = item.getBoundingClientRect();
+          let left = itemRect.left + itemRect.width / 2 - menu.offsetWidth / 2;
+          let top = itemRect.top - menu.offsetHeight - 10;
+          left = Math.max(0, Math.min(left, window.innerWidth - menu.offsetWidth));
+          top = Math.max(0, Math.min(top, window.innerHeight - menu.offsetHeight));
+          menu.style.position = 'fixed';
+          menu.style.left = left + 'px';
+          menu.style.top = top + 'px';
+          menu.style.transform = 'none';
+        }, 0);
+      }
+
+      __hideChildrenMenu() {
+        const menus = document.querySelectorAll('.taskbar-children-menu');
+        if (!menus || menus.length === 0) return;
+        menus.forEach(menu => {
+          menu.style.animation = 'fadeOut 0.2s ease-out forwards';
+          menu.addEventListener('animationend', () => {
+            if (menu) menu.remove();
+          });
+        });
+      }
+
+      __showContextMenu(e, app, item) {
+        let prevMenu = document.querySelector('.taskbar-context-menu');
+        if (prevMenu) prevMenu.remove();
+        prevMenu = document.querySelector('.taskbar-children-menu');
+        if (prevMenu) prevMenu.remove();
+
+        const menu = document.createElement('div');
+        menu.className = 'taskbar-context-menu';
+        menu.innerHTML = `
+          <div class="taskbar-menu-item" data-action="activate">Activate</div>
+          <div class="taskbar-menu-separator"></div>
+          <div class="taskbar-menu-item" data-action="minimize">Minimize</div>
+          <div class="taskbar-menu-item" data-action="maximize">Maximize</div>
+          <div class="taskbar-menu-separator"></div>
+          <div class="taskbar-menu-item taskbar-menu-close" data-action="close">Close</div>
+        `;
+        document.body.appendChild(menu);
+        const rect = item.getBoundingClientRect();
+        menu.style.left = Math.max(0, Math.min(rect.left + rect.width / 2 - menu.offsetWidth / 2, window.innerWidth - menu.offsetWidth)) + 'px';
+        menu.style.top = (rect.top - menu.offsetHeight) + 'px';
+
+        const actions = {
+          activate: () => app.setActiveWindow(true),
+          minimize: () => app.handleMinimize(),
+          maximize: () => app.handleMaximize(),
+          close: () => app.handleClose()
+        };
+
+        menu.querySelectorAll('.taskbar-menu-item').forEach(menuItem => {
+          menuItem.addEventListener('click', (e) => {
+            actions[e.target.dataset.action]?.();
+            menu.remove();
+          });
+        });
+
+        document.addEventListener('click', () => menu.parentElement && menu.remove(), { once: true });
       }
     }
   </script>
