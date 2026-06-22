@@ -220,11 +220,8 @@ class Modal {
     this.title.textContent = newTitle || this.title;
   }
   updateIcon(newIconHtml) {
-    window.openApplications.forEach(app => {
-      if (app === this) {
-        app.iconHtml = newIconHtml;
-      }
-    });
+    this.iconHtml = newIconHtml;
+    this.updateApplication();
   }
   setApp() {
     const minButton = document.createElement("div");
@@ -328,9 +325,6 @@ class Modal {
           desktop.focus();
         }
       } else {
-        const lastWindow = openWindows[openWindows.length - 1];
-        if (lastWindow && !lastWindow.isMinimized) lastWindow.setActiveWindow();
-
         let highestWindow = null;
         let maxZ = -1;
         openWindows.forEach(w => {
@@ -340,8 +334,8 @@ class Modal {
             highestWindow = w;
           }
         });
-        if (highestWindow) {
-          highestWindow.setActiveWindow?.();
+        if (highestWindow?.setActiveWindow) {
+          highestWindow.setActiveWindow();
         }
       }
     }, 100);
@@ -485,6 +479,13 @@ class Modal {
     );
     if (this.modWindow) {
       this.modWindow.style.zIndex = maxZ + 1;
+      this.updateApplication();
+    }
+  }
+  updateApplication() {
+    const i = window.openApplications.indexOf(this);
+    if (i !== -1) {
+      window.openApplications[i] = this;
     }
   }
 }
