@@ -43,13 +43,13 @@ const StorageManager = (() => {
 })();
 
 class ContextMenuBuilder {
-  static createMenuItem(iconHtml, label, className = '', onClick = null, badge = null, disabled = false) {
+  static createMenuItem(iconHtml = '', label = '', className = '', onClick = null, badge = null, disabled = false) {
     const item = document.createElement('div');
     item.className = `menu-item ${className}`.trim();
     if (disabled) item.classList.add('disabled');
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'menu-icon';
-    iconWrapper.innerHTML = iconHtml || '';
+    iconWrapper.innerHTML = iconHtml;
     const textWrapper = document.createElement('div');
     textWrapper.className = 'menu-label';
     textWrapper.textContent = label;
@@ -61,9 +61,10 @@ class ContextMenuBuilder {
       badgeNode.textContent = badge;
       item.appendChild(badgeNode);
     }
-    if (onClick && !disabled) {
-      item.addEventListener('click', onClick);
-    }
+    item.addEventListener('click', () => {
+      if (onClick && !disabled && typeof onClick === 'function') onClick();
+      ContextMenuBuilder.removeMenu();
+    });
     return item;
   }
 
@@ -76,10 +77,10 @@ class ContextMenuBuilder {
   static getEventPoint(e) {
     const touchPoint = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
     return {
-      pageX: typeof e.pageX === 'number' ? e.pageX : touchPoint ? touchPoint.pageX : window.innerWidth / 2,
-      pageY: typeof e.pageY === 'number' ? e.pageY : touchPoint ? touchPoint.pageY : window.innerHeight / 2,
-      clientX: typeof e.clientX === 'number' ? e.clientX : touchPoint ? touchPoint.clientX : window.innerWidth / 2,
-      clientY: typeof e.clientY === 'number' ? e.clientY : touchPoint ? touchPoint.clientY : window.innerHeight / 2
+      pageX: typeof e.pageX === 'number' ? e.pageX : touchPoint ? touchPoint.pageX : null,
+      pageY: typeof e.pageY === 'number' ? e.pageY : touchPoint ? touchPoint.pageY : null,
+      clientX: typeof e.clientX === 'number' ? e.clientX : touchPoint ? touchPoint.clientX : null,
+      clientY: typeof e.clientY === 'number' ? e.clientY : touchPoint ? touchPoint.clientY : null
     };
   }
 
@@ -92,13 +93,22 @@ class ContextMenuBuilder {
       menu.style.top = `${y}px`;
     } else {
       const x = Math.max(0, Math.min(clientX, window.innerWidth - menu.offsetWidth));
-      const y = Math.max(0, Math.min(clientY, window.innerHeight - menu.offsetHeight));
+      let y = clientY;
+      const taskbarHeight = system.taskbar?.getTaskbarHeight() || 0;
+      if (clientY > (window.innerHeight - menu.offsetHeight - taskbarHeight)) {
+        y = clientY - menu.offsetHeight;
+        menu.style.borderBottomLeftRadius = '0px';
+      } else {
+        menu.style.borderTopLeftRadius = '0px';
+      }
+      y = Math.max(0, y);
       menu.style.left = `${x}px`;
       menu.style.top = `${y}px`;
     }
   }
 
-  static renderMenu({ event, headerIconHtml = '', headerLabelText = '', headerBadge = '', items = [], appendTo = document.body, containerRect = null }) {
+  static renderMenu({ event, headerIconHtml = '', headerLabelText = '', headerBadge = '', items = [], appendTo = null, containerRect = null }) {
+    ContextMenuBuilder.removeMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
 
@@ -135,9 +145,60 @@ class ContextMenuBuilder {
       }
     });
 
+    if (!appendTo) appendTo = document.body;
     appendTo.appendChild(menu);
     ContextMenuBuilder.positionMenuAtEvent(menu, event, containerRect);
+    const { pageX, pageY, clientX, clientY } = ContextMenuBuilder.getEventPoint(event);
+    const startX1 = clientX;
+    const startY1 = clientY;
+    const mouseDownHandler = (e) => {
+      if (menu && !menu.contains(e.target)) {
+        ContextMenuBuilder.removeMenu();
+      }
+    };
+    const touchStartHandler = (e) => {
+      if (menu && !menu.contains(e.target)) {
+        ContextMenuBuilder.removeMenu();
+      }
+    };
+    const touchMoveHandler = (e) => {
+      const touch = e.touches && e.touches[0];
+      if (!touch) return;
+      if (menu && !(startX1 && startY1 && !(Math.abs(touch.clientX - startX1) > 10 || Math.abs(touch.clientY - startY1) > 10))) {
+        ContextMenuBuilder.removeMenu();
+      }
+    };
+    document.addEventListener('mousedown', mouseDownHandler);
+    document.addEventListener('touchstart', touchStartHandler);
+    document.addEventListener('touchmove', touchMoveHandler);
+    try {
+      menu._touchMoveHandler = touchMoveHandler;
+      menu._mouseDownHandler = mouseDownHandler;
+      menu._touchStartHandler = touchStartHandler;
+    } catch (e) { }
     return menu;
+  }
+  static removeMenu() {
+    const menu = document.querySelector('.context-menu');
+    if (menu) {
+      try {
+        if (menu._mouseDownHandler) {
+          document.removeEventListener('mousedown', menu._mouseDownHandler);
+          menu._mouseDownHandler = null;
+        }
+        if (menu._touchStartHandler) {
+          document.removeEventListener('touchstart', menu._touchStartHandler);
+          menu._touchStartHandler = null;
+        }
+        if (menu._touchMoveHandler) {
+          document.removeEventListener('touchmove', menu._touchMoveHandler);
+          menu._touchMoveHandler = null;
+        }
+      } catch (e) { }
+      if (typeof menu.remove === 'function') {
+        menu.remove();
+      }
+    }
   }
 }
 
@@ -216,10 +277,10 @@ class Modal {
     }
     this.setActiveWindow(!!animAll);
   }
-  updateTitle(newTitle) {
-    this.title.textContent = newTitle || this.title;
+  updateTitle(newTitle = null) {
+    if (this.title) this.title.textContent = newTitle;
   }
-  updateIcon(newIconHtml) {
+  updateIcon(newIconHtml = null) {
     this.iconHtml = newIconHtml;
     this.updateApplication();
   }
@@ -344,7 +405,7 @@ class Modal {
     if (!text) return;
     const button = document.createElement("div");
     button.className = "control info";
-    button.innerHTML = "i";
+    button.textContent = "i";
     button.onclick = () => { new Dialog(name, `What is ${name}?`, text, 'info', ['Ok'], 'Ok', this); };
     this.titleBar.appendChild(button);
     button.title = "Info";
@@ -361,7 +422,7 @@ class Modal {
       this.setTransition();
       this.modWindow.classList[this.isMinimized ? "add" : "remove"]("minimize");
       if (this.isMinimized) {
-        desktop.unsetActiveWindows();
+        system.desktop.unsetActiveWindows();
       }
     } else if (this.isMinimized) {
       this.isMinimized = false;
@@ -396,7 +457,7 @@ class Modal {
     }, 300);
   }
   startDragging(e) {
-    if (this.isBlocked || this.isMinimized || e.target.closest(".controls") || e.target.closest(".control")) return;
+    if (this.isBlocked || this.isMinimized || e.target !== this.titleBar) return;
     if (e.cancelable) e.preventDefault();
     this.handleMaximize(false);
     if (e.type === "touchstart") {
@@ -460,7 +521,7 @@ class Modal {
   }
   setActiveWindow(all = false) {
     if (!this.modWindow?.classList.contains("active")) {
-      desktop?.unsetActiveWindows();
+      system.desktop?.unsetActiveWindows();
       if (this.modWindow) {
         this.setTransition(all ? null : "shadow");
         this.handleMinimize(false);
@@ -469,7 +530,7 @@ class Modal {
       }
     }
     if (this.modWindow && !this.modWindow.contains(document.activeElement)) this.modWindow.focus();
-    taskbar?.updateTaskbar();
+    system.taskbar?.updateTaskbar();
   }
   bringToFront() {
     const maxZ = Math.max(
@@ -491,9 +552,10 @@ class Modal {
 }
 
 class Dialog {
-  constructor(title, mainMessage, details, iconType, buttons, primaryButton, parentModal = null) {
+  constructor(title = '', mainMessage = '', details = '', iconType = null, buttons = null, primaryButton = null, parentModal = null) {
     return new Promise(resolve => {
-      const app = new Modal(title);
+      const icon = iconType && icons[iconType] || '';
+      const app = new Modal(title, icon);
       const appMain = app.appMain;
       app.modWindow.classList.add('dialog');
       const standart = 'Cancel';
@@ -501,19 +563,20 @@ class Dialog {
         closeDialog(standart);
         return false;
       });
-      if (parentModal) {
+      const isModal = parentModal && parentModal instanceof Modal;
+      if (isModal) {
         parentModal.blockWindow();
         parentModal.dialogApp = app;
         app.parentApp = parentModal;
         parentModal.childApps.push(app);
       }
-      const buttonsHtml = buttons.map(label => {
-        const isPrimary = label === primaryButton;
+      const buttonsHtml = (buttons && typeof buttons === 'object' && buttons.length > 0) ? buttons.map(label => {
+        const isPrimary = (primaryButton && label === primaryButton);
         const primaryClass = isPrimary ? ' primary' : '';
         return `<button class="mac-btn${primaryClass}" data-action="${label}">${label}</button>`;
-      }).join('');
+      }).join('') : '';
       appMain.innerHTML = `
-                              <div class="icon-section">${icons[iconType] || ''}</div>
+                              <div class="icon-section">${icon}</div>
                                 <div class="message-section">
                                     <h2>${mainMessage}</h2>
                                     <p>${details}</p>
@@ -527,25 +590,25 @@ class Dialog {
       footer.querySelector('button.primary')?.focus();
       app.modWindow.style.width = 'auto';
       setTimeout(() => {
-        const buttons = footer.querySelectorAll('button');
+        const buttons = footer.querySelectorAll('button') || null;
         let buttonsWidth = 40;
-        buttons.forEach((btn, index) => {
+        buttons ? buttons.forEach((btn, index) => {
           buttonsWidth += btn.offsetWidth;
           if (index < buttons.length - 1) buttonsWidth += 10;
-        });
+        }) : null;
         app.modWindow.style.minWidth = buttonsWidth + 'px';
         app.modWindow.style.width = '';
       }, 0);
 
       const closeDialog = (result) => {
-        if (parentModal) {
+        if (isModal) {
           const index = parentModal.childApps.indexOf(app);
           if (index > -1) {
             parentModal.childApps.splice(index, 1);
           }
         }
         app.handleClose();
-        if (parentModal) {
+        if (isModal) {
           parentModal.dialogApp = null;
           parentModal.unblockWindow();
           parentModal.setActiveWindow();
@@ -858,7 +921,7 @@ class Terminal {
       },
       notepad: {
         execute: (args) => {
-          const path = fileSystem.getResolvedPath(this.context.path, args[0])[0];
+          const path = system.fileSystem.getResolvedPath(this.context.path, args[0])[0];
           try {
             if (path) {
               new TextEditor(null, path);
@@ -876,7 +939,7 @@ class Terminal {
         }
       },
       run: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], 'executable'),
+        execute: (args) => system.fileSystem.openFile(system.fileSystem.getResolvedPath(this.context.path, args[0])[0], 'executable'),
         help: {
           description: "Execute application",
           usage: "run <file_path>",
@@ -884,7 +947,7 @@ class Terminal {
         }
       },
       open: {
-        execute: (args) => fileSystem.openFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], args[1]),
+        execute: (args) => system.fileSystem.openFile(system.fileSystem.getResolvedPath(this.context.path, args[0])[0], args[1]),
         help: {
           description: "Open any file (auto-detect type)",
           usage: "open <file_path> [file_type](audio, video, image, text or executable)",
@@ -1243,20 +1306,19 @@ class Terminal {
   }
   clear() {
     this.terminalWindow.innerHTML = '';
-    this.addOutputLine('Terminal cleared', 'info');
   }
   about() {
     this.addOutputLine(`TermOS ${ver} - ${this.appName} (by David)`, 'info');
   }
   formatItemInfo(item) {
-    return fileSystem.formatSize(fileSystem.getItemSize(item), item.type);
+    return system.fileSystem.formatSize(system.fileSystem.getItemSize(item), item.type);
   }
   ls() {
-    const files = fileSystem.ls(this.context.path);
-    const currentDir = fileSystem._resolvePath(this.context.path);
+    const files = system.fileSystem.ls(this.context.path);
+    const currentDir = system.fileSystem._resolvePath(this.context.path);
     let parentDir;
     if (this.context.path !== '/') {
-      parentDir = fileSystem._resolvePath(fileSystem._findParent(this.context.path));
+      parentDir = system.fileSystem._resolvePath(system.fileSystem._findParent(this.context.path));
     }
     if (!parentDir && (!files.length || files.length === 0)) {
       this.addOutputLine("Directory is empty.");
@@ -1274,7 +1336,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify directory name');
     }
-    const success = fileSystem.mkdir(this.context.path, args[0]);
+    const success = system.fileSystem.mkdir(this.context.path, args[0]);
     if (!success) {
       throw new Error(`Directory '${args[0]}' already exists`);
     }
@@ -1285,7 +1347,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify path');
     }
-    const newPath = fileSystem.cd(this.context.path, args[0]);
+    const newPath = system.fileSystem.cd(this.context.path, args[0]);
     if (!newPath) {
       throw new Error(`Invalid path: ${args[0]}`);
     }
@@ -1295,7 +1357,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify filename');
     }
-    const success = fileSystem.touch(this.context.path, args[0]);
+    const success = system.fileSystem.touch(this.context.path, args[0]);
     if (!success) {
       throw new Error(`File '${args[0]}' already exists`);
     }
@@ -1318,9 +1380,9 @@ class Terminal {
       recursive = true;
       args.splice(recursiveIndex, 1);
     }
-    const fullPath = fileSystem.getResolvedPath(this.context.path, args[0])[0];
+    const fullPath = system.fileSystem.getResolvedPath(this.context.path, args[0])[0];
     try {
-      const success = fileSystem.rm(fullPath, recursive, force);
+      const success = system.fileSystem.rm(fullPath, recursive, force);
       if (!success) {
         throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
       }
@@ -1330,7 +1392,7 @@ class Terminal {
       if (message.includes("protected system") && !force) {
         const answer = await new Dialog('Force Remove', `Protected system ${message.includes('directory') ? 'directory' : message.includes('file') ? 'file' : 'item'}`, `${message}. Do you want to force removal?`, 'question', ['Cancel', 'Force'], 'Force', this.terminalApp);
         if (answer === 'Force') {
-          const success = fileSystem.rm(fullPath, recursive, true);
+          const success = system.fileSystem.rm(fullPath, recursive, true);
           if (!success) {
             throw new Error(recursive ? "Can't remove directory" : "Directory not empty, use -r for recursive removal");
           }
@@ -1354,9 +1416,9 @@ class Terminal {
       throw new Error('Invalid syntax. Use: echo [text] > [filename]');
     }
     const [text, filePath] = parts;
-    const [fullPath] = fileSystem.getResolvedPath(this.context.path, filePath);
-    const target = fileSystem._resolvePath(fullPath);
-    const success = await fileSystem.writeFile(fullPath, text);
+    const [fullPath] = system.fileSystem.getResolvedPath(this.context.path, filePath);
+    const target = system.fileSystem._resolvePath(fullPath);
+    const success = await system.fileSystem.writeFile(fullPath, text);
     if (!success) throw new Error(`Failed to write to file '${fullPath}'`);
     this.addOutputLine(`Content written to '${fullPath}'`);
   }
@@ -1364,7 +1426,7 @@ class Terminal {
     if (args.length === 0) {
       throw new Error('Please specify filename');
     }
-    const content = await fileSystem.decodeContent(fileSystem.readFile(fileSystem.getResolvedPath(this.context.path, args[0])[0], { asText: true }), 'text');
+    const content = await system.fileSystem.decodeContent(system.fileSystem.readFile(system.fileSystem.getResolvedPath(this.context.path, args[0])[0], { asText: true }), 'text');
     if (content === null) {
       throw new Error(`File '${args[0]}' not found`);
     }
@@ -1401,8 +1463,8 @@ class Terminal {
     const labelElement = progressBar.querySelector('.progress-label');
     if (labelElement && label && labelElement.textContent !== label) labelElement.textContent = label;
     const formattedPercent = Math.floor(percent);
-    const formattedLoaded = fileSystem.formatSize(loaded);
-    const formattedTotal = total > 0 ? fileSystem.formatSize(total) : '??';
+    const formattedLoaded = system.fileSystem.formatSize(loaded);
+    const formattedTotal = total > 0 ? system.fileSystem.formatSize(total) : '??';
     fillElement.style.width = `${percent}%`;
     percentElement.textContent = `${formattedPercent}%`;
     sizeElement.textContent = `${formattedLoaded}/${formattedTotal}`;
@@ -1482,7 +1544,7 @@ class Terminal {
   }
   getCommandHints(command, args, currentWord) {
     const commands = this.isSpecialMode ? this.specialCommands : this.commands;
-    const currentDirItems = fileSystem.ls(this.context.path);
+    const currentDirItems = system.fileSystem.ls(this.context.path);
     const filterByStart = (items) => items.filter(item => item.name.startsWith(currentWord)).map(item => item.name.slice(currentWord.length));
     const filterByType = (type) => filterByStart(currentDirItems.filter(item => item.type === type));
 
@@ -1524,10 +1586,10 @@ class Terminal {
       throw new Error('Usage: mv <source> <target>');
     }
     const [source, target] = args;
-    const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
-    const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
+    const sourceAbsPath = system.fileSystem.getResolvedPath(this.context.path, source)[0];
+    const targetAbsPath = system.fileSystem.getResolvedPath(this.context.path, target)[0];
     try {
-      fileSystem.mv(sourceAbsPath, targetAbsPath);
+      system.fileSystem.mv(sourceAbsPath, targetAbsPath);
       this.addOutputLine(`Moved '${source}' to '${target}'`, 'success');
     } catch (e) {
       throw new Error(`Failed to move '${source}': ${e.message}`);
@@ -1538,10 +1600,10 @@ class Terminal {
       throw new Error('Usage: cp <source> <target>');
     }
     const [source, target] = args;
-    const sourceAbsPath = fileSystem.getResolvedPath(this.context.path, source)[0];
-    const targetAbsPath = fileSystem.getResolvedPath(this.context.path, target)[0];
+    const sourceAbsPath = system.fileSystem.getResolvedPath(this.context.path, source)[0];
+    const targetAbsPath = system.fileSystem.getResolvedPath(this.context.path, target)[0];
     try {
-      fileSystem.cp(sourceAbsPath, targetAbsPath);
+      system.fileSystem.cp(sourceAbsPath, targetAbsPath);
       this.addOutputLine(`Copied '${source}' to '${target}'`, 'success');
     } catch (e) {
       throw new Error(`Failed to copy '${source}': ${e.message}`);
@@ -1571,7 +1633,7 @@ class Terminal {
       if (!fileName || fileName === '') {
         throw new Error('Could not determine filename. Please specify manually.');
       }
-      const [fullPath] = fileSystem.getResolvedPath(this.context.path, fileName);
+      const [fullPath] = system.fileSystem.getResolvedPath(this.context.path, fileName);
       const total = parseInt(response.headers.get('Content-Length') || '0', 10);
       const reader = response.body.getReader();
       const chunks = [];
@@ -1591,7 +1653,7 @@ class Terminal {
       this.updateProgressBar(progressBar, 99, loaded, total, "Saving to " + fullPath);
       const blob = new Blob(chunks);
       const content = new Uint8Array(await blob.arrayBuffer());
-      const success = await fileSystem.writeFile(fullPath, content, true);
+      const success = await system.fileSystem.writeFile(fullPath, content, true);
       if (!success) throw new Error('Failed to save file');
       this.updateProgressBar(progressBar, 100, loaded, total, "Saved to " + fullPath);
       this.addOutputLine("Download complete", 'success');
@@ -1607,23 +1669,23 @@ class Terminal {
     const fileName = args[0];
     let progressBar = null;
     try {
-      const [fullPath] = fileSystem.getResolvedPath(this.context.path, fileName);
-      const file = fileSystem._resolvePath(fullPath);
+      const [fullPath] = system.fileSystem.getResolvedPath(this.context.path, fileName);
+      const file = system.fileSystem._resolvePath(fullPath);
       if (!file || file.type !== 'file') {
         throw new Error(`File not found: ${fileName}`);
       }
       progressBar = this.createProgressBar("Unpacking " + fileName);
-      const extractedFiles = await fileSystem.unarchive(file, (processed, total, currentFile) => {
+      const extractedFiles = await system.fileSystem.unarchive(file, (processed, total, currentFile) => {
         const displayFile = currentFile || fileName;
         this.updateProgressBar(progressBar, (processed / total) * 100, processed, total, "Unpacking " + displayFile);
       });
       for (const item of extractedFiles) {
         if (item.isDirectory) {
-          fileSystem.mkdirp(fileSystem.getResolvedPath(this.context.path, item.path)[0]);
+          system.fileSystem.mkdirp(system.fileSystem.getResolvedPath(this.context.path, item.path)[0]);
         } else {
-          const [newFilePath] = fileSystem.getResolvedPath(this.context.path, item.path);
-          fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
-          await fileSystem.writeFile(newFilePath, item.content, true);
+          const [newFilePath] = system.fileSystem.getResolvedPath(this.context.path, item.path);
+          system.fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
+          await system.fileSystem.writeFile(newFilePath, item.content, true);
         }
       }
       this.addOutputLine(`Successfully unarchived into ${this.context.path}`, 'success');
@@ -1716,8 +1778,8 @@ class TextEditor {
     const size = new TextEncoder().encode(this.textarea.value).length;
     this.app.appMain.querySelector('[data-info="lines"]').textContent = `Lines: ${lines}`;
     this.app.appMain.querySelector('[data-info="chars"]').textContent = `Chars: ${chars}`;
-    this.app.appMain.querySelector('[data-info="size"]').textContent = `Size: ${fileSystem.formatSize(size)}`;
-    const file = fileSystem._resolvePath(this.path);
+    this.app.appMain.querySelector('[data-info="size"]').textContent = `Size: ${system.fileSystem.formatSize(size)}`;
+    const file = system.fileSystem._resolvePath(this.path);
     this.app.appMain.querySelector('[data-info="encoding"]').textContent = (file?.type === "file" && file.parameters) ? file.parameters.encoding :
       "UTF-8";
   }
@@ -1778,8 +1840,8 @@ class TextEditor {
   }
   async getFileContent() {
     try {
-      const content = await fileSystem.asyncReadFile(this.path);
-      return await fileSystem.decodeContent(content, "text");
+      const content = await system.fileSystem.asyncReadFile(this.path);
+      return await system.fileSystem.decodeContent(content, "text");
     } catch (error) {
       this.showStatus(`Error reading file: ${error.message}`, 'error');
       return null;
@@ -1813,8 +1875,8 @@ class TextEditor {
       }
 
       const dirPath = newPath.split('/').slice(0, -1).join('/');
-      fileSystem.mkdirp(dirPath);
-      const success = await fileSystem.writeFile(newPath, this.textarea.value);
+      system.fileSystem.mkdirp(dirPath);
+      const success = await system.fileSystem.writeFile(newPath, this.textarea.value);
       if (success) {
         this.path = newPath;
         this.name = newPath.split('/').pop();
@@ -1924,8 +1986,8 @@ class ImageViewer {
     imgElement.appendChild(this.loader);
     this.appMain.appendChild(imgElement);
     this.appMain.style.alignItems = "center";
-    fileSystem.asyncReadFile(path).then((content) => {
-      return fileSystem.decodeContent(content, 'url');
+    system.fileSystem.asyncReadFile(path).then((content) => {
+      return system.fileSystem.decodeContent(content, 'url');
     }).then((url) => {
       this.img.src = url;
     }).catch((error) => {
@@ -1959,7 +2021,6 @@ class FileExplorer {
     this.viewMode = 'list';
     this.sortType = "name";
     this.sortOrder = "asc";
-    this.contextMenu = null;
     this.initialPath = initialPath;
     this.expandedPaths = new Set();
     this.initUI();
@@ -1969,7 +2030,7 @@ class FileExplorer {
     this.context = new FileSystemClone();
     if (this.initialPath) {
       try {
-        const resolved = fileSystem._resolvePath(this.initialPath);
+        const resolved = system.fileSystem._resolvePath(this.initialPath);
         if (resolved && resolved.type === 'directory') {
           this.context.path = this.initialPath;
         }
@@ -2131,7 +2192,7 @@ class FileExplorer {
     });
     this.app.addTrackedListener(this.fileList, "contextmenu", (e) => {
       e.preventDefault();
-      if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) {
+      if (!e.isLongPress && isTouchEvent(e)) {
         e.stopPropagation();
         return;
       }
@@ -2145,9 +2206,13 @@ class FileExplorer {
     this.setupKeyboardShortcuts();
   }
   updateFileSelection() {
+    const selected = Array.from(this.selectedItems);
     this.fileList.querySelectorAll(".file-item").forEach((item) => {
-      if (this.selectedItems.has(item.dataset.name)) {
+      if (selected.includes(item.dataset.name)) {
         item.classList.add("selected");
+        if (selected.length === 1 && selected[0] === item.dataset.name) {
+          item.scrollIntoView({ block: 'nearest' });
+        }
       } else {
         item.classList.remove("selected");
       }
@@ -2225,9 +2290,6 @@ class FileExplorer {
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         this.navigateUp();
-      } else if (e.key === 'F7') {
-        e.preventDefault();
-        this.createNewFolder();
       } else if (e.key === 'F8') {
         e.preventDefault();
         if (this.selectedItems.size > 0) {
@@ -2302,7 +2364,7 @@ class FileExplorer {
   }
 
   getSortedFiles() {
-    let files = fileSystem.ls(this.context.path) || [];
+    let files = system.fileSystem.ls(this.context.path) || [];
     return files.sort((a, b) => {
       let res = 0;
       if (this.sortType === "name") {
@@ -2310,15 +2372,15 @@ class FileExplorer {
       } else if (this.sortType === "type") {
         res = a.type === b.type ? a.name.localeCompare(b.name) : a.type === "directory" ? -1 : 1;
       } else if (this.sortType === "size") {
-        const sizeA = fileSystem.getItemSize(a);
-        const sizeB = fileSystem.getItemSize(b);
+        const sizeA = system.fileSystem.getItemSize(a);
+        const sizeB = system.fileSystem.getItemSize(b);
         res = sizeA - sizeB;
       }
       return this.sortOrder === "asc" ? res : -res;
     });
   }
   formatItemInfo(item) {
-    return fileSystem.formatSize(fileSystem.getItemSize(item), item.type);
+    return system.fileSystem.formatSize(system.fileSystem.getItemSize(item), item.type);
   }
 
   escapeHtml(text) {
@@ -2331,14 +2393,13 @@ class FileExplorer {
   }
 
   updateFileList() {
-    const currentDir = fileSystem._resolvePath(this.context.path);
+    const currentDir = system.fileSystem._resolvePath(this.context.path);
     if (!currentDir) {
       this.navigateUp();
       return;
     }
     const files = this.getSortedFiles();
     this.loadFileSystemTree();
-    desktop.refreshDesktop();
     const selectedArray = Array.from(this.selectedItems);
     const validSelected = selectedArray.filter(name => files.find((f) => f.name === name));
     if (validSelected.length !== selectedArray.length) {
@@ -2375,7 +2436,7 @@ class FileExplorer {
       <div class="file-item list ${f.type} ${this.selectedItems.has(f.name) ? 'selected' : ''} ${isRenaming ? 'renaming' : ''}" data-name="${this.escapeHtml(f.name)}">
           <span class="file-icon">${this.getFileIcon(f)}</span>
           <span class="file-name">${fileNameHtml}</span>
-          <span class="file-type">${f.type === 'directory' ? 'Folder' : f.type === 'file' ? fileSystem.getFileType(f.name).display : f.type.charAt(0).toUpperCase() + f.type.slice(1).toLowerCase()}</span>
+          <span class="file-type">${f.type === 'directory' ? 'Folder' : f.type === 'file' ? system.fileSystem.getFileType(f.name).display : f.type.charAt(0).toUpperCase() + f.type.slice(1).toLowerCase()}</span>
           <span class="file-size">${this.formatItemInfo(f)}</span>
       </div>`;
         }
@@ -2385,7 +2446,7 @@ class FileExplorer {
       const firstSelected = Array.from(this.selectedItems)[0];
       const selectedElement = this.fileList.querySelector(`.file-item[data-name="${this.escapeHtml(firstSelected)}"]`);
       if (selectedElement) {
-        selectedElement.scrollIntoView();
+        selectedElement.scrollIntoView({ block: 'nearest' });
       }
     }
     const renameInput = this.fileList.querySelector('.rename-input');
@@ -2403,16 +2464,16 @@ class FileExplorer {
           return;
         }
 
-        const matches = fileSystem.checkForbiddenChars(trimmed);
+        const matches = system.fileSystem.checkForbiddenChars(trimmed);
         if (matches) {
           alert(`The filename contains forbidden characters: ${matches.join(', ')}`);
           return;
         }
 
         try {
-          fileSystem.mv(
-            fileSystem.getResolvedPath(this.context.path, oldName)[0],
-            fileSystem.getResolvedPath(this.context.path, trimmed)[0]
+          system.fileSystem.mv(
+            system.fileSystem.getResolvedPath(this.context.path, oldName)[0],
+            system.fileSystem.getResolvedPath(this.context.path, trimmed)[0]
           );
           this.selectedItems.clear();
           this.selectedItems.add(trimmed);
@@ -2420,7 +2481,7 @@ class FileExplorer {
           new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
         }
         this.renamingItem = null;
-        this.updateFileList();
+        this.updateUI();
       };
       let renameCommittedByEnter = false;
       this.app.addTrackedListener(renameInput, 'keydown', (e) => {
@@ -2466,7 +2527,7 @@ class FileExplorer {
     if (parIco && f.parameters?.icon) return f.parameters.icon;
     if (f.type === "directory" && icons.folder) return icons.folder;
     if (f.type === "file") {
-      let fileType = fileSystem.getFileType(f.name).type;
+      let fileType = system.fileSystem.getFileType(f.name).type;
       fileType = 'file' + fileType.charAt(0).toUpperCase() + fileType.slice(1).toLowerCase();
       if (icons[fileType]) return icons[fileType];
     }
@@ -2483,18 +2544,18 @@ class FileExplorer {
   createNewFolder() {
     let newName = "New Folder";
     let counter = 0;
-    while (fileSystem.ls(this.context.path).some(item => item.name === newName)) {
+    while (system.fileSystem.ls(this.context.path).some(item => item.name === newName)) {
       counter++;
       newName = `New Folder (${counter})`;
     }
-    fileSystem.mkdir(this.context.path, newName);
+    system.fileSystem.mkdir(this.context.path, newName);
     this.clearSelection();
     this.renamingItem = newName;
     this.selectedItems.add(newName);
     this.updateFileList();
+    system.desktop.refreshDesktop();
   }
   showContextMenu(e) {
-    if (this.contextMenu) this.contextMenu.remove();
     const targetFile = e.target.closest(".file-item");
     if (targetFile && !this.selectedItems.has(targetFile.dataset.name)) {
       this.selectedItems.clear();
@@ -2505,7 +2566,7 @@ class FileExplorer {
     }
     const savedPath = this.context.path;
     const savedSelectedArray = Array.from(this.selectedItems);
-    const selectedFiles = savedSelectedArray.map(name => fileSystem.ls(savedPath).find((f) => f.name === name)).filter(Boolean);
+    const selectedFiles = savedSelectedArray.map(name => system.fileSystem.ls(savedPath).find((f) => f.name === name)).filter(Boolean);
     const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
     const hasClipboard = clipboardData && clipboardData.paths && clipboardData.paths.length > 0;
 
@@ -2522,7 +2583,7 @@ class FileExplorer {
     if (isFileMenu) {
       const isSingleSelection = selectionCount === 1;
       const firstFile = selectedFiles[0];
-      const isArchive = firstFile.type === 'file' && fileSystem.getFileType(firstFile.name).type === "archive";
+      const isArchive = firstFile.type === 'file' && system.fileSystem.getFileType(firstFile.name).type === "archive";
 
       if (isSingleSelection) {
         if (firstFile.type === "file") {
@@ -2558,7 +2619,7 @@ class FileExplorer {
             label: 'Open in New Window',
             className: 'open-new-window',
             onClick: () => {
-              new FileExplorer(null, fileSystem.getResolvedPath(savedPath, firstFile.name)[0]);
+              new FileExplorer(null, system.fileSystem.getResolvedPath(savedPath, firstFile.name)[0]);
             }
           });
           items.push({ isSeparator: true });
@@ -2600,7 +2661,7 @@ class FileExplorer {
         label: `Copy Path${selectionCount > 1 ? 's' : ''}`,
         className: 'copyPath',
         onClick: () => {
-          const paths = selectedFiles.map(f => fileSystem.getResolvedPath(savedPath, f.name)[0]).join('\n');
+          const paths = selectedFiles.map(f => system.fileSystem.getResolvedPath(savedPath, f.name)[0]).join('\n');
           this.copyPath(savedPath, null, paths);
         }
       });
@@ -2668,19 +2729,15 @@ class FileExplorer {
       });
     }
 
-    this.contextMenu = ContextMenuBuilder.renderMenu({
+    const contextMenu = ContextMenuBuilder.renderMenu({
       event: e,
       headerIconHtml,
       headerLabelText,
       headerBadge: (isFileMenu && selectionCount > 1) ? String(selectionCount) : '',
       items,
-      appendTo: this.appMain,
-      containerRect: this.modWindow.getBoundingClientRect()
+      appendTo: null,
+      containerRect: null
     });
-
-    this.app.addTrackedListener(document, "click", () => {
-      this.contextMenu?.remove();
-    }, { once: true });
   }
   clearSelection() {
     this.selectedItems.clear();
@@ -2693,28 +2750,29 @@ class FileExplorer {
   createNewFile() {
     let newName = "New File";
     let counter = 0;
-    while (fileSystem.ls(this.context.path).some(item => item.name === newName)) {
+    while (system.fileSystem.ls(this.context.path).some(item => item.name === newName)) {
       counter++;
       newName = `New File (${counter})`;
     }
-    fileSystem.touch(this.context.path, newName);
+    system.fileSystem.touch(this.context.path, newName);
     this.clearSelection();
     this.renamingItem = newName;
     this.selectedItems.add(newName);
     this.updateFileList();
-
+    system.desktop.refreshDesktop();
   }
   updateUI() {
     this.fileList.innerHTML = "";
     this.renamingItem = null;
     this.loadBookmarks();
     setTimeout(() => this.updateFileList(), 0);
+    system.desktop.refreshDesktop();
   }
   openSelected(selectedFiles = [], path = null, selectedItems = []) {
     if (!path) path = this.context.path;
     if (!selectedItems) selectedItems = this.selectedItems;
     if (!selectedFiles) {
-      selectedFiles = fileSystem.ls(path).filter((f) => selectedItems.has(f.name));
+      selectedFiles = system.fileSystem.ls(path).filter((f) => selectedItems.has(f.name));
     }
     if (!selectedFiles) return;
     for (let i = 0; i < selectedFiles.length; i++) {
@@ -2722,7 +2780,7 @@ class FileExplorer {
       if (selectedFile.type === "directory") {
         try {
           if (i > 0) {
-            new FileExplorer(null, fileSystem.getResolvedPath(path, selectedFile.name)[0]);
+            new FileExplorer(null, system.fileSystem.getResolvedPath(path, selectedFile.name)[0]);
           } else {
             this.navigateTo(path, selectedFile.name);
           }
@@ -2731,21 +2789,21 @@ class FileExplorer {
         }
       } else if (selectedFile.type === "file") {
         try {
-          fileSystem.openFile(fileSystem.getResolvedPath(path, selectedFile.name).filter(Boolean).join(' '));
+          system.fileSystem.openFile(system.fileSystem.getResolvedPath(path, selectedFile.name).filter(Boolean).join(' '));
         } catch (e) {
           new Dialog('File Explorer - Error', 'An error occurred', e.message, 'error', ['Ok'], 'Ok', this.app);
         }
       } else if (selectedFile.type === "link") {
         try {
           const linkTarget = selectedFile.target || null;
-          const resolvedLink = fileSystem._resolvePath(linkTarget);
+          const resolvedLink = system.fileSystem._resolvePath(linkTarget);
           if (!resolvedLink) return;
           if (resolvedLink.type === "directory") {
             this.navigateTo(linkTarget);
           } else if (resolvedLink.type === "file") {
-            fileSystem.openFile(linkTarget);
+            system.fileSystem.openFile(linkTarget);
           } else if (resolvedLink.type === "link") {
-            const nestedResolved = fileSystem.getResolvedPath(linkTarget, '..')[0];
+            const nestedResolved = system.fileSystem.getResolvedPath(linkTarget, '..')[0];
             if (!nestedResolved) return;
             this.navigateTo(nestedResolved);
             this.selectedItems.clear();
@@ -2764,9 +2822,9 @@ class FileExplorer {
   }
   openAsSelected(file = null, path = null, selectedItem = null) {
     if (!path) path = this.context.path;
-    if (!file) file = fileSystem.ls(path).find((f) => f.name === selectedItem);
+    if (!file) file = system.fileSystem.ls(path).find((f) => f.name === selectedItem);
     if (file) {
-      fileSystem.showAppPicker(fileSystem.getResolvedPath(path, file.name).filter(Boolean).join(' '));
+      system.fileSystem.showAppPicker(system.fileSystem.getResolvedPath(path, file.name).filter(Boolean).join(' '));
     }
   }
   renameSelected(file = null, path = null, selectedItem = null) {
@@ -2780,7 +2838,7 @@ class FileExplorer {
   async deleteSelectedMultiple(files = [], path = null) {
     if (!path) path = this.context.path;
     if (files.length === 0) {
-      const allFiles = fileSystem.ls(path);
+      const allFiles = system.fileSystem.ls(path);
       files = Array.from(this.selectedItems).map(name => allFiles.find((f) => f.name === name)).filter(Boolean) || [];
       if (files.length === 0) return;
     }
@@ -2804,7 +2862,7 @@ class FileExplorer {
     if (answer === 'Delete') {
       try {
         files.forEach(file => {
-          fileSystem.rm(fileSystem.getResolvedPath(path, file.name)[0], true);
+          system.fileSystem.rm(system.fileSystem.getResolvedPath(path, file.name)[0], true);
         });
         this.clearSelection();
         this.updateUI();
@@ -2818,7 +2876,7 @@ class FileExplorer {
     try {
       let textToCopy = customText;
       if (!textToCopy) {
-        if (selectedItem) textToCopy = fileSystem.getResolvedPath(path, selectedItem)[0];
+        if (selectedItem) textToCopy = system.fileSystem.getResolvedPath(path, selectedItem)[0];
         else textToCopy = path;
       }
       await copyText(textToCopy);
@@ -2833,7 +2891,7 @@ class FileExplorer {
     manager.sourceFile.textContent = file.name;
     manager.destPath.textContent = savedPath;
     try {
-      const extractedFiles = await fileSystem.unarchive(file, (processed, total, currentFile) => {
+      const extractedFiles = await system.fileSystem.unarchive(file, (processed, total, currentFile) => {
         const displayFile = currentFile || file.name;
         manager.updateProgress(processed, total, displayFile, file.name, savedPath);
       });
@@ -2842,11 +2900,11 @@ class FileExplorer {
       const totalFiles = extractedFiles.length;
       for (const item of extractedFiles) {
         if (item.isDirectory) {
-          fileSystem.mkdirp(fileSystem.getResolvedPath(savedPath, item.path)[0]);
+          system.fileSystem.mkdirp(system.fileSystem.getResolvedPath(savedPath, item.path)[0]);
         } else {
-          const newFilePath = fileSystem.getResolvedPath(savedPath, item.path)[0];
-          fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
-          await fileSystem.writeFile(newFilePath, item.content, true);
+          const newFilePath = system.fileSystem.getResolvedPath(savedPath, item.path)[0];
+          system.fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
+          await system.fileSystem.writeFile(newFilePath, item.content, true);
         }
         filesProcessed++;
         manager.updateProgress(filesProcessed, totalFiles, item.path, file.name, savedPath);
@@ -2861,8 +2919,8 @@ class FileExplorer {
 
   navigateTo(path, itemName = null) {
     try {
-      path = itemName ? fileSystem.getResolvedPath(path, itemName)[0] : fileSystem.getResolvedPath('/', path)[0];
-      const resolved = fileSystem._resolvePath(path);
+      path = itemName ? system.fileSystem.getResolvedPath(path, itemName)[0] : system.fileSystem.getResolvedPath('/', path)[0];
+      const resolved = system.fileSystem._resolvePath(path);
       if (resolved && resolved.type === 'directory') {
         if (this.context.path !== path) {
           this.context.path = path;
@@ -2901,13 +2959,13 @@ class FileExplorer {
 
   updateStatusBar() {
     if (!this.statusBar) return;
-    const files = fileSystem.ls(this.context.path);
+    const files = system.fileSystem.ls(this.context.path);
     const itemsCount = files.length;
     const selectedCount = this.selectedItems.size;
     let totalSize = 0;
     files.forEach(file => {
       if (file.type === 'file' || file.type === "link")
-        totalSize += fileSystem.getItemSize(file);
+        totalSize += system.fileSystem.getItemSize(file);
     });
     const itemsSpan = this.appMain.querySelector('.status-items-count');
     if (itemsSpan) itemsSpan.textContent = `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
@@ -2921,11 +2979,21 @@ class FileExplorer {
       }
     }
     const totalSpan = this.appMain.querySelector('.status-total-size');
-    if (totalSpan) totalSpan.textContent = `${fileSystem.formatSize(totalSize)}`;
+    if (totalSpan) totalSpan.textContent = `${system.fileSystem.formatSize(totalSize)}`;
+  }
+
+  getBookmarks() {
+    const defaultBookmarks = ['/home', '/bin/desktop'];
+    const stored = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || 'null');
+    if (Array.isArray(stored)) {
+      return stored;
+    }
+    StorageManager.setItem('fileExplorerBookmarks', JSON.stringify(defaultBookmarks));
+    return [...defaultBookmarks];
   }
 
   addBookmark(path) {
-    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '[]');
+    const bookmarks = this.getBookmarks();
     if (!bookmarks.includes(path)) {
       bookmarks.push(path);
       StorageManager.setItem('fileExplorerBookmarks', JSON.stringify(bookmarks));
@@ -2934,7 +3002,7 @@ class FileExplorer {
   }
 
   loadBookmarks() {
-    const bookmarks = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || '["/home", "/bin/desktop"]');
+    const bookmarks = this.getBookmarks();
     const bookmarksList = this.appMain.querySelector('#bookmarks-list');
     if (!bookmarksList) return;
     bookmarksList.innerHTML = '';
@@ -2961,7 +3029,7 @@ class FileExplorer {
 
   copySelected() {
     const paths = Array.from(this.selectedItems).map(name =>
-      fileSystem.getResolvedPath(this.context.path, name)[0]
+      system.fileSystem.getResolvedPath(this.context.path, name)[0]
     );
     const clipboardData = { type: 'copy', paths, source: this.context.path };
     StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
@@ -2969,7 +3037,7 @@ class FileExplorer {
 
   cutSelected() {
     const paths = Array.from(this.selectedItems).map(name =>
-      fileSystem.getResolvedPath(this.context.path, name)[0]
+      system.fileSystem.getResolvedPath(this.context.path, name)[0]
     );
     const clipboardData = { type: 'cut', paths, source: this.context.path };
     StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
@@ -2987,8 +3055,8 @@ class FileExplorer {
         paths.forEach(sourcePath => {
           const fileName = sourcePath.split('/').pop();
           try {
-            const targetPath = fileSystem.getResolvedPath(this.context.path, fileName)[0];
-            fileSystem.cp(sourcePath, targetPath);
+            const targetPath = system.fileSystem.getResolvedPath(this.context.path, fileName)[0];
+            system.fileSystem.cp(sourcePath, targetPath);
             successes.push(fileName);
           } catch (e) {
             errors.push({ file: fileName, error: e.message });
@@ -2998,8 +3066,8 @@ class FileExplorer {
         paths.forEach(sourcePath => {
           const fileName = sourcePath.split('/').pop();
           try {
-            const targetPath = fileSystem.getResolvedPath(this.context.path, fileName)[0];
-            fileSystem.mv(sourcePath, targetPath);
+            const targetPath = system.fileSystem.getResolvedPath(this.context.path, fileName)[0];
+            system.fileSystem.mv(sourcePath, targetPath);
             successes.push(fileName);
           } catch (e) {
             errors.push({ file: fileName, error: e.message });
@@ -3020,7 +3088,7 @@ class FileExplorer {
         this.addOutputLine?.(`Successfully ${type === 'copy' ? 'copied' : 'moved'} ${successes.length} item${successes.length !== 1 ? 's' : ''}`);
       }
 
-      this.updateFileList();
+      this.updateUI();
     } catch (e) {
       console.error('Paste error:', e);
       new Dialog('File Explorer - Error', 'Paste operation failed', e.message, 'error', ['Ok'], 'Ok', this.app);
@@ -3066,12 +3134,12 @@ class FileExplorer {
     if (depth > 3) return;
 
     try {
-      const items = fileSystem.ls(path) || [];
+      const items = system.fileSystem.ls(path) || [];
       const folders = items.filter(item => item.type === 'directory').sort((a, b) => a.name.localeCompare(b.name));
 
       folders.forEach(folder => {
         const folderPath = `${path}/${folder.name}`.replace(/\/+/g, '/');
-        const hasSubfolders = (fileSystem.ls(folderPath) || []).some(f => f.type === 'directory');
+        const hasSubfolders = (system.fileSystem.ls(folderPath) || []).some(f => f.type === 'directory');
         const isExpanded = this.expandedPaths.has(folderPath);
         const isActive = this.context.path === folderPath;
 
@@ -3219,7 +3287,7 @@ class PathSelector {
     const filenameContainer = document.createElement('div');
     filenameContainer.className = 'ps-filename-container';
 
-    if (this.mode === 'save') {
+    if (this.mode === 'save' || this.mode === 'open') {
       const filenameLabel = document.createElement('label');
       filenameLabel.textContent = 'Filename:';
       filenameLabel.className = 'ps-filename-label';
@@ -3242,13 +3310,10 @@ class PathSelector {
     saveBtn.className = this.mode === 'save' ? 'ps-save-btn' : 'ps-open-btn';
     saveBtn.onclick = () => {
       let finalPath = null;
-      if (this.mode === 'save') {
+      if (this.mode === 'save' || this.mode === 'open') {
         const filename = this.filenameInput?.value?.trim() || 'Untitled.txt';
-        finalPath = `${this.currentPath}/${filename}`.replace(/\/+/g, '/');
-      } else {
-        finalPath = this.selectedPath;
+        finalPath = system.fileSystem.getResolvedPath(this.currentPath, filename)[0];
       }
-
       if (finalPath) {
         this.closeSelector(finalPath);
       }
@@ -3272,7 +3337,7 @@ class PathSelector {
     this.fileListContainer = fileListContainer;
     this.filenameInput = filenameInput;
     this.app.setApp();
-    if (this.mode === 'save' && this.defaultFileName && this.filenameInput) {
+    if (this.defaultFileName && this.filenameInput) {
       this.filenameInput.value = this.defaultFileName;
     }
     this.updatePathSelector();
@@ -3342,12 +3407,13 @@ class PathSelector {
     this.fileListContainer.innerHTML = '';
 
     try {
-      const files = fileSystem.ls(this.currentPath) || [];
+      const files = system.fileSystem.ls(this.currentPath) || [];
 
       files.forEach(file => {
         const div = document.createElement('div');
         div.className = 'ps-file-item';
-        if (this.selectedPath === `${this.currentPath}/${file.name}`.replace(/\/+/g, '/')) {
+        const resolvedPath = system.fileSystem.getResolvedPath(this.currentPath, file.name)[0];
+        if (this.selectedPath === resolvedPath) {
           div.classList.add('selected');
         }
 
@@ -3358,34 +3424,33 @@ class PathSelector {
           div.style.background = 'rgba(0,255,0,0.1)';
         };
         div.onmouseout = () => {
-          if (this.selectedPath !== `${this.currentPath}/${file.name}`.replace(/\/+/g, '/')) {
+          if (this.selectedPath !== resolvedPath) {
             div.style.background = 'transparent';
           }
         };
 
         div.onclick = () => {
           if (file.type === 'directory') {
-            this.currentPath = `${this.currentPath}/${file.name}`.replace(/\/+/g, '/');
+            this.currentPath = system.fileSystem.getResolvedPath(this.currentPath, file.name)[0];
             this.pathInput.value = this.currentPath;
             this.updatePathSelector();
           } else if (file.type === 'link') {
-            const targetPath = file.target;
+            const targetPath = system.fileSystem.getResolvedPath('/', file.target)[0];
             const targetParts = targetPath.split('/').filter(p => p);
             const targetFilename = targetParts.pop();
             const targetDirPath = '/' + targetParts.join('/');
             this.currentPath = targetDirPath || '/';
+            if (this.filenameInput) {
+              this.filenameInput.value = targetFilename;
+            }
             this.pathInput.value = this.currentPath;
-            this.selectedPath = targetPath.replace(/\/+/g, '/');
+            this.selectedPath = targetPath;
             this.updatePathSelector();
           } else {
-            this.selectedPath = `${this.currentPath}/${file.name}`.replace(/\/+/g, '/');
-            if (this.mode === 'save') {
-              this.pathInput.value = this.currentPath;
-              if (this.filenameInput) {
-                this.filenameInput.value = file.name;
-              }
-            } else {
-              this.pathInput.value = this.selectedPath;
+            this.selectedPath = resolvedPath;
+            this.pathInput.value = this.currentPath;
+            if (this.filenameInput) {
+              this.filenameInput.value = file.name;
             }
             this.updateFileList();
           }
@@ -3393,6 +3458,10 @@ class PathSelector {
 
         this.fileListContainer.appendChild(div);
       });
+      const selected = this.fileListContainer.querySelector('.ps-file-item.selected');
+      if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+      }
 
       if (files.length === 0) {
         const emptyMsg = document.createElement('p');
@@ -3564,8 +3633,8 @@ class VideoPlayer {
     }
     const name = path.split('/').pop();
     this.app.updateTitle(name + " - Video Player");
-    fileSystem.asyncReadFile(path).then((content) => {
-      return fileSystem.decodeContent(content, 'url');
+    system.fileSystem.asyncReadFile(path).then((content) => {
+      return system.fileSystem.decodeContent(content, 'url');
     }).then((url) => {
       this.video.src = url;
       this.setupMediaSession(name);
@@ -3721,7 +3790,7 @@ class VideoPlayer {
   showControls() {
     if (!this.controlsVisible) {
       const controls = this.appMain.querySelector(".video-controls");
-      controls.style.opacity = "1";
+      controls.classList.remove("hidden");
       this.controlsVisible = true;
       if (this.eventsTimer) clearTimeout(this.eventsTimer);
       this.eventsTimer = setTimeout(() => (controls.style.pointerEvents = "all"), 200);
@@ -3730,7 +3799,7 @@ class VideoPlayer {
   hideControls() {
     if (this.controlsVisible && !this.video.paused) {
       const controls = this.appMain.querySelector(".video-controls");
-      controls.style.opacity = "0";
+      controls.classList.add("hidden");
       this.controlsVisible = false;
       if (this.eventsTimer) clearTimeout(this.eventsTimer);
       this.eventsTimer = setTimeout(() => (controls.style.pointerEvents = "none"), 200);
@@ -3760,8 +3829,8 @@ class AudioPlayer {
     }
     const name = path.split('/').pop();
     this.app.updateTitle(name + " - Audio Player");
-    fileSystem.asyncReadFile(path).then((content) => {
-      return fileSystem.decodeContent(content, 'url');
+    system.fileSystem.asyncReadFile(path).then((content) => {
+      return system.fileSystem.decodeContent(content, 'url');
     }).then((url) => {
       this.music.src = url;
       this.setupMediaSession(name);
@@ -3923,8 +3992,8 @@ class Browser {
     if (path) {
       const name = path.split('/').pop();
       this.app.updateTitle(name + " - Browser");
-      fileSystem.asyncReadFile(path).then((content) => {
-        return fileSystem.decodeContent(content, 'text');
+      system.fileSystem.asyncReadFile(path).then((content) => {
+        return system.fileSystem.decodeContent(content, 'text');
       }).then((html) => {
         this.updateViewer(html);
       }).catch((error) => {
@@ -3954,7 +4023,6 @@ class TaskManager {
     this.selectedApp = null;
     this.sortBy = "name";
     this.expandedApps = new Set();
-    this.contextMenu = null;
     this.webglSupported = this.checkWebGLSupport();
     this.initUI();
     this.refreshInterval = setInterval(() => this.updateProcessList(), 1000);
@@ -4011,7 +4079,7 @@ class TaskManager {
     `;
 
     this.setupTabListeners();
-    this.setupButtonListeners();
+    this.setupClickListeners();
     this.setupLongPressMenu();
     this.updateProcessList();
     this.updateBrowserInfo();
@@ -4032,9 +4100,21 @@ class TaskManager {
     });
   }
 
-  setupButtonListeners() {
+  setupClickListeners() {
     const endTaskBtn = this.appMain.querySelector("#endTask");
     this.app.addTrackedListener(endTaskBtn, "click", () => this.endSelectedTask());
+    const container = this.appMain.querySelector('.tm-process-list');
+    this.app.addTrackedListener(container, "click", (e) => {
+      if (!e.target.closest('.tm-process-item')) {
+        this.clearSelection();
+      }
+    });
+    this.app.addTrackedListener(container, "contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.isLongPress && isTouchEvent(e)) return;
+      this.showContextMenu(e);
+    });
   }
 
   setupLongPressMenu() {
@@ -4075,7 +4155,6 @@ class TaskManager {
       if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
-        this.closeContextMenu();
       }
     };
 
@@ -4323,18 +4402,6 @@ class TaskManager {
         }
       });
     });
-
-    this.app.addTrackedListener(container, "click", (e) => {
-      if (!e.target.closest('.tm-process-item')) {
-        this.clearSelection();
-      }
-    });
-    this.app.addTrackedListener(container, "contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) return;
-      this.showContextMenu(e);
-    });
   }
 
   clearSelection() {
@@ -4342,13 +4409,7 @@ class TaskManager {
     this.selectedApp = null;
   }
 
-  closeContextMenu() {
-    this.contextMenu?.remove();
-    this.contextMenu = null;
-  }
-
   showContextMenu(e) {
-    if (this.contextMenu) this.contextMenu.remove();
     const item = e.target.closest('.tm-process-item');
     this.clearSelection();
     const items = [];
@@ -4360,7 +4421,6 @@ class TaskManager {
       const app = apps[rootIndex];
       targetApp = childIndex !== null && app?.childApps ? app.childApps[childIndex] : app;
       if (targetApp) {
-        console.log(targetApp.appName);
         item.classList.add("selected");
         this.selectedApp = childIndex !== null && !Number.isNaN(childIndex) ? { rootIndex, childIndex } : { rootIndex };
         const isRootItem = item.dataset.child === "false";
@@ -4372,7 +4432,6 @@ class TaskManager {
           className: 'open',
           onClick: () => {
             if (targetApp && targetApp.modWindow) targetApp.setActiveWindow(true);
-            this.closeContextMenu();
           }
         });
         items.push({
@@ -4383,7 +4442,6 @@ class TaskManager {
             this.closeAppAndChildren(targetApp);
             this.clearSelection();
             this.updateProcessList();
-            this.closeContextMenu();
           }
         });
         if (rootHasChildren) {
@@ -4395,7 +4453,6 @@ class TaskManager {
               if (isExpanded) this.expandedApps.delete(app);
               else this.expandedApps.add(app);
               this.updateProcessList();
-              this.closeContextMenu();
             }
           });
         }
@@ -4407,28 +4464,16 @@ class TaskManager {
       className: 'refresh',
       onClick: () => {
         this.updateProcessList();
-        this.closeContextMenu();
       }
     });
-    this.contextMenu = ContextMenuBuilder.renderMenu({
+    const contextMenu = ContextMenuBuilder.renderMenu({
       event: e,
       headerIconHtml: icons.taskManager,
       headerLabelText: (item && targetApp) ? targetApp.appName : 'Task Manager',
       items,
-      appendTo: this.appMain,
-      containerRect: this.app.modWindow.getBoundingClientRect()
+      appendTo: null,
+      containerRect: null
     });
-    this.app.addTrackedListener(document, "click", (e) => {
-      if (!(e.pointerType.includes('touch') && this.appMain.contains(e.target))) {
-        this.closeContextMenu();
-      } else {
-        this.app.addTrackedListener(document, "click", (e) => {
-          if (!this.appMain.contains(e.target)) {
-            this.closeContextMenu();
-          }
-        }, { once: true });
-      }
-    }, { once: true });
   }
 
   closeAppAndChildren(app) {
@@ -4466,15 +4511,15 @@ class TaskManager {
 
 async function executeFile(path, args = null) {
   const isAsk = !path.split('/').pop().toLowerCase().endsWith('.app');
-  let answer = null;
+  let answer = false;
   if (isAsk) {
-    answer = await new Dialog('Confirm Execution', 'Security Risk', 'Executing code is dangerous. It can steal data or damage the system.\nOnly run if you trust the source.', 'warning', ['Cancel', 'Run'], 'Cancel');
-    console.log("User confirmed execution. Running script...");
+    answer = await new Dialog('Confirm Execution', 'Security Risk', 'Executing code is dangerous. It can steal data or damage the system.\nOnly run if you trust the source.', 'warning', ['Run', 'Cancel'], 'Cancel') === 'Run';
+    if (answer) console.log("User confirmed execution. Running script...");
   }
-  if (!isAsk || answer === 'Run') {
+  if (!isAsk || answer) {
     try {
       (async function () {
-        fileSystem.asyncReadFile(path).then((content) => { return fileSystem.decodeContent(content, 'text'); }).then((content) => {
+        system.fileSystem.asyncReadFile(path).then((content) => { return system.fileSystem.decodeContent(content, 'text'); }).then((content) => {
           try {
             eval(content);
           } catch (e) {

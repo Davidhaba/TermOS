@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
   <title>TermOS</title>
   <meta name="description"
     content="TermOS is a complete web operating system with terminal, file system, applications, and desktop environment.">
@@ -29,7 +30,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v6.1.0';
+    const ver = 'v6.2.0';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -94,8 +95,18 @@
       expand: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g> <path d="M14 10L21 3M21 3H16.5M21 3V7.5M10 14L3 21M3 21H7.5M3 21L3 16.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>',
       personalize: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 5V3M12 21V19M19 12H21M3 12H5M17.66 6.34L19.07 4.93M4.93 19.07L6.34 17.66M17.66 17.66L19.07 19.07M4.93 4.93L6.34 6.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
-    let iDBFS, fileSystem, desktop, taskbar;
+    const system = {};
     window.openApplications = [];
+    function isTouchEvent(e) {
+      if (!e) return false;
+      try {
+        if (typeof e.pointerType === 'string' && e.pointerType.startsWith && e.pointerType.startsWith('touch')) return true;
+        if (typeof e.type === 'string' && e.type.startsWith && e.type.startsWith('touch')) return true;
+        if (e.touches && e.touches.length > 0) return true;
+        if (e.changedTouches && e.changedTouches.length > 0) return true;
+      } catch (err) { }
+      return false;
+    }
 
     class IndexedDBFileSystem {
       constructor() {
@@ -184,12 +195,11 @@
         alert("System Maintenance\n\nTermOS is currently undergoing maintenance. Please try again in a few minutes.");
         return;
       }
-      iDBFS = new IndexedDBFileSystem();
-      fileSystem = await FileSystem.create();
-      desktop = new Desktop();
-      taskbar = new TaskBar();
+      system.iDBFS = new IndexedDBFileSystem();
+      system.fileSystem = await FileSystem.create();
+      system.desktop = new Desktop();
+      system.taskbar = new TaskBar();
       new Terminal();
-
     }
     async function copyText(text) {
       let copySuccess = false;
@@ -219,7 +229,7 @@
     }
     class FileSystemClone {
       constructor() {
-        this.root = fileSystem.globalRoot;
+        this.root = system.fileSystem.globalRoot;
         const homeDir = this.root.children.find(d => d.name === 'home' && d.type === 'directory');
         if (homeDir) {
           this.path = '/home';
@@ -436,7 +446,7 @@
         };
       }
       static async create() {
-        const persistedRoot = await iDBFS.load();
+        const persistedRoot = await system.iDBFS.load();
         const fs = new FileSystem(persistedRoot);
         await fs.ensureRequiredFiles();
         return fs;
@@ -630,14 +640,14 @@
       }
       async saveFileSystem() {
         try {
-          return await iDBFS.save(this.globalRoot);
+          return await system.iDBFS.save(this.globalRoot);
         } catch {
           return false;
         }
       }
       async getFileSystem() {
         try {
-          return await iDBFS.load();
+          return await system.iDBFS.load();
         } catch {
           return null;
         }
@@ -1039,15 +1049,15 @@
         }
       }
       getFileType(fileName) {
-        for (const ext of Object.keys(fileSystem.typeMap).sort((a, b) => b.length - a.length)) {
+        for (const ext of Object.keys(system.fileSystem.typeMap).sort((a, b) => b.length - a.length)) {
           if (fileName.toLowerCase().endsWith(`.${ext}`)) {
-            return fileSystem.typeMap[ext];
+            return system.fileSystem.typeMap[ext];
           }
         }
-        return fileSystem.typeMap['file'];
+        return system.fileSystem.typeMap['file'];
       }
       openFile(pathWithArgs, fileType = 'auto') {
-        const [path, args] = fileSystem._splitPathAndArgs(pathWithArgs);
+        const [path, args] = system.fileSystem._splitPathAndArgs(pathWithArgs);
         if (!path) {
           throw new Error('Please specify a file path');
         }
@@ -1062,7 +1072,7 @@
           fileType = this.getFileType(file.name).type;
         }
 
-        const handler = fileSystem.fileHandlers[fileType];
+        const handler = system.fileSystem.fileHandlers[fileType];
         if (handler) {
           handler(args, path);
         } else {
@@ -1070,7 +1080,7 @@
         }
       }
       showAppPicker(pathWithArgs) {
-        const path = fileSystem._splitPathAndArgs(pathWithArgs)[0];
+        const path = system.fileSystem._splitPathAndArgs(pathWithArgs)[0];
         const dialog = document.createElement('div');
         dialog.className = 'app-picker-dialog';
         const trimName = (name, maxLength = 20) => {
@@ -1185,7 +1195,6 @@
         this.ctrlSelectedIcons = new Set();
         this.draggedIcon = null;
         this.draggedIcons = [];
-        this.contextMenu = null;
         this.lastSelectedIndex = -1;
         this.touchStartX = 0;
         this.touchStartY = 0;
@@ -1202,7 +1211,7 @@
         this.desktop.className = "desktop";
         this.desktop.tabIndex = 0;
         document.body.appendChild(this.desktop);
-        this.loadDesktopShortcuts();
+        this.refreshDesktop();
         this.setupEventListeners();
         this.setActiveDesktop();
         this.updateGridRows();
@@ -1210,7 +1219,7 @@
       }
       loadDesktopShortcuts() {
         try {
-          const desktopItems = fileSystem.ls('/bin/desktop');
+          const desktopItems = system.fileSystem.ls('/bin/desktop');
           if (!desktopItems || desktopItems.length === 0) {
             return;
           }
@@ -1226,16 +1235,15 @@
         }
       }
       createDesktopIcon(item, i) {
-        let displayName = fileSystem._splitPathAndArgs(item.name)[0];
-        if (displayName.endsWith('.app')) {
+        let displayName = system.fileSystem._splitPathAndArgs(item.name)[0];
+        if (displayName.endsWith('.app') && item.type === 'file') {
           displayName = displayName.slice(0, -4);
         }
         item.displayName = displayName;
-        item.index = i;
         const isLink = item.type === 'link';
-        const targetItem = isLink ? fileSystem._resolvePath(item.target) : null;
+        const targetItem = isLink ? system.fileSystem._resolvePath(item.target) : null;
         const icon = document.createElement("div");
-        icon.dataset.item = JSON.stringify(item);
+        icon.dataset.itemName = item.name;
         icon.className = "desktop-icon";
         let iconSvg;
         if (item.parameters?.icon) {
@@ -1248,14 +1256,14 @@
           if (targetItem.type === 'directory') {
             iconSvg = icons.folder;
           } else {
-            const fileIcon = this.getIconForFileType(fileSystem.getFileType(targetItem.name).type) || null;
+            const fileIcon = this.getIconForFileType(system.fileSystem.getFileType(targetItem.name).type) || null;
             iconSvg = fileIcon ? fileIcon : icons.file;
           }
         } else {
           if (item.type === 'directory') {
             iconSvg = icons.folder;
           } else {
-            const fileIcon = this.getIconForFileType(fileSystem.getFileType(item.name).type) || null;
+            const fileIcon = this.getIconForFileType(system.fileSystem.getFileType(item.name).type) || null;
             iconSvg = fileIcon ? fileIcon : icons.file;
           }
         }
@@ -1269,25 +1277,16 @@
           linkBadge.innerHTML = icons.shortcut;
           image.appendChild(linkBadge);
         }
-        const isRenaming = this.renamingIconName === item.name;
-        if (isRenaming) {
-          const input = document.createElement("textarea");
-          input.className = "rename-input";
-          input.value = item.displayName;
-          icon.appendChild(input);
-          icon.classList.add('renaming');
-        } else {
-          const label = document.createElement("div");
-          label.className = "label";
-          label.textContent = item.displayName;
-          label.title = item.displayName;
-          icon.appendChild(label);
-        }
+        const label = document.createElement("div");
+        label.className = "label";
+        label.textContent = item.displayName;
+        label.title = item.displayName;
+        icon.appendChild(label);
         icon.draggable = true;
         let position = item.parameters?.desktopPosition;
         if (!position) {
           const { rows } = this.getDesktopGridMetrics();
-          const desktopItems = fileSystem.ls('/bin/desktop');
+          const desktopItems = system.fileSystem.ls('/bin/desktop');
           const occupied = new Set();
           desktopItems.forEach(fsItem => {
             const fsPos = fsItem.parameters?.desktopPosition;
@@ -1304,82 +1303,18 @@
           item.parameters = item.parameters || {};
           position = { col, row };
           item.parameters.desktopPosition = position;
-          const desktopItem = fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+          const desktopItem = system.fileSystem._resolvePath(`/bin/desktop/${item.name}`);
           if (desktopItem) {
             desktopItem.parameters = desktopItem.parameters || {};
             desktopItem.parameters.desktopPosition = { col, row };
           }
-          fileSystem.saveFileSystem();
+          system.fileSystem.saveFileSystem();
         }
         if (position && Number.isInteger(position.col) && Number.isInteger(position.row)) {
           icon.style.gridColumnStart = String(position.col + 1);
           icon.style.gridRowStart = String(position.row + 1);
         }
         this.desktop?.appendChild(icon);
-        if (isRenaming) {
-          const renameInput = icon.querySelector('.rename-input');
-          const adjustHeight = () => {
-            renameInput.style.height = '1px';
-            renameInput.style.height = renameInput.scrollHeight + 'px';
-          };
-          const commitRename = (newValue) => {
-            if (!this.renamingIconName) {
-              this.refreshDesktop();
-              return;
-            }
-            const trimmed = String(newValue || '').trim();
-            if (!trimmed || trimmed === item.displayName) {
-              this.renamingIconName = null;
-              this.refreshDesktop();
-              return;
-            }
-            const [oldName, args] = fileSystem._splitPathAndArgs(this.renamingIconName);
-            const nameWithExt = trimmed + (oldName.endsWith('.app') ? '.app' : '');
-            const [sourcePath, sourceArgs] = fileSystem.getResolvedPath('/bin/desktop', oldName);
-            const [targetPath, targetArgs] = fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
-            try {
-              fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
-            } catch (e) {
-              new Dialog("Error", `Failed to rename`, e.message, "error", ['OK'], 'OK');
-            }
-            this.renamingIconName = null;
-            this.refreshDesktop();
-          };
-          let renameCommittedByEnter = false;
-          renameInput.addEventListener('keydown', (e) => {
-            if (!this.renamingIconName) return;
-            e.stopPropagation();
-            if (e.code === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              renameCommittedByEnter = true;
-              commitRename(renameInput.value);
-            } else if (e.code === 'Escape') {
-              e.preventDefault();
-              renameCommittedByEnter = true;
-              this.renamingIconName = null;
-              this.refreshDesktop();
-            } else {
-              setTimeout(adjustHeight, 0);
-            }
-          });
-          renameInput.addEventListener('input', adjustHeight);
-          renameInput.addEventListener('blur', () => {
-            if (renameCommittedByEnter) {
-              renameCommittedByEnter = false;
-              return;
-            }
-            commitRename(renameInput.value);
-          });
-          renameInput.addEventListener('click', (e) => e.stopPropagation());
-          renameInput.addEventListener('dblclick', (e) => e.stopPropagation());
-          renameInput.addEventListener('contextmenu', (e) => e.stopPropagation());
-          renameInput.addEventListener('mousedown', (e) => e.stopPropagation());
-          renameInput.addEventListener('mouseup', (e) => e.stopPropagation());
-          renameInput.addEventListener('dragstart', (e) => e.stopPropagation());
-          adjustHeight();
-          renameInput.focus();
-          renameInput.select();
-        }
 
         icon.addEventListener('mousedown', (e) => this.handleIconMouseDown(e));
         icon.addEventListener('mouseup', (e) => this.handleIconMouseUp(e));
@@ -1392,7 +1327,6 @@
         icon.addEventListener('dragover', (e) => this.handleDragOver(e));
         icon.addEventListener('drop', (e) => this.handleDrop(e, icon));
         icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
-
       }
       getDesktopGridMetrics() {
         const desktopRect = this.desktop.getBoundingClientRect();
@@ -1420,6 +1354,50 @@
         const canFitPartialIcon = remainder >= (cellSize / 2);
         const rows = Math.max(1, fullRows + (canFitPartialIcon ? 1 : 0));
         this.desktop.style.setProperty('--grid-rows', rows.toString());
+
+        this.fixDesktopIconPositions(rows);
+      }
+
+      fixDesktopIconPositions(newRows) {
+        const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
+        const occupied = new Set();
+        const toReposition = [];
+        const iconData = icons.map(icon => {
+          const itemName = this.getDesktopItemName(icon);
+          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0]) : null;
+          return { icon, desktopItem, savedPos: desktopItem?.parameters?.desktopPosition };
+        });
+        iconData.forEach(({ icon, savedPos }) => {
+          if (savedPos && Number.isInteger(savedPos.row) && savedPos.row < newRows) {
+            icon.style.gridColumnStart = String(savedPos.col + 1);
+            icon.style.gridRowStart = String(savedPos.row + 1);
+            icon.dataset.isOverflow = 'false';
+            occupied.add(savedPos.col * newRows + savedPos.row);
+          } else {
+            const col = parseInt(icon.style.gridColumnStart || 1, 10) - 1;
+            const row = parseInt(icon.style.gridRowStart || 1, 10) - 1;
+
+            if (row < newRows && col >= 0) {
+              icon.dataset.isOverflow = 'false';
+              occupied.add(col * newRows + row);
+            } else {
+              icon.dataset.isOverflow = 'true';
+              toReposition.push({ icon, savedPos });
+            }
+          }
+        });
+        toReposition.forEach(({ icon, savedPos }) => {
+          const startCol = Number.isInteger(savedPos?.col) ? savedPos.col : 0;
+          let cellIndex = startCol * newRows;
+          while (occupied.has(cellIndex)) {
+            cellIndex++;
+          }
+          occupied.add(cellIndex);
+          const tempCol = Math.floor(cellIndex / newRows);
+          const tempRow = cellIndex % newRows;
+          icon.style.gridColumnStart = String(tempCol + 1);
+          icon.style.gridRowStart = String(tempRow + 1);
+        });
       }
       getGridCellCenters(columns, rows, cellSize, columnGap, rowGap) {
         const cellCenters = [];
@@ -1535,7 +1513,7 @@
         let itemType = item.type;
         if (isLink) {
           const targetPath = item.target;
-          const targetItem = fileSystem._resolvePath(targetPath);
+          const targetItem = system.fileSystem._resolvePath(targetPath);
           if (!targetItem) {
             new Dialog("Error", `Target not found for shortcut '${item.displayName}'`, `The target path '${targetPath}' does not exist.`, "error", ['Ok'], 'Ok');
             return;
@@ -1543,20 +1521,19 @@
           path = targetPath;
           itemType = targetItem.type;
         } else {
-          path = fileSystem.getResolvedPath('/bin/desktop', item.name)[0];
+          path = system.fileSystem.getResolvedPath('/bin/desktop', item.name)[0];
         }
         try {
           if (itemType === 'directory') {
             new FileExplorer(null, path);
           } else if (itemType === 'file') {
-            fileSystem.openFile(path);
+            system.fileSystem.openFile(path);
           }
         } catch (e) {
           new Dialog("Error", `Unable to open '${item.displayName}'`, e.message, "error", ['Ok'], 'Ok');
         }
       }
       handleIconMouseDown(e) {
-        e.stopPropagation();
         this.setActiveDesktop();
         const icon = e.currentTarget;
         const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
@@ -1625,20 +1602,14 @@
       }
       handleIconMouseUp(e) {
         if (!e.ctrlKey && !e.shiftKey && e.button !== 2) {
-          this.selectedIcons.clear();
-          this.ctrlSelectedIcons.clear();
+          this.clearSelection();
           this.selectedIcons.add(e.currentTarget);
-          this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
-            if (this.selectedIcons.has(i)) {
-              i.classList.add('selected');
-            } else {
-              i.classList.remove('selected');
-            }
-          });
+          e.currentTarget.classList.add('selected');
+          this.lastSelectedIndex = Array.from(this.desktop.querySelectorAll('.desktop-icon')).indexOf(e.currentTarget);
         }
       }
       handleDragStart(e) {
-        if (!this.draggedIcon || !this.selectedIcons.has(this.draggedIcon) || e.pointerType === 'touch' || !e.dataTransfer) {
+        if (!this.draggedIcon || !this.selectedIcons.has(this.draggedIcon) || isTouchEvent(e) || !e.dataTransfer) {
           e.preventDefault();
           return;
         }
@@ -1652,7 +1623,164 @@
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
       }
-      handleDrop(e, targetIcon) {
+      async handleDrop(e, targetIcon) {
+        try {
+          if (e && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files);
+            const items = Array.from((e.dataTransfer.items || []));
+            const successes = [];
+            const errors = [];
+
+            const makeUnique = (name, taken) => {
+              if (!taken.includes(name)) return name;
+              const dot = name.lastIndexOf('.');
+              const base = dot > 0 ? name.slice(0, dot) : name;
+              const ext = dot > 0 ? name.slice(dot) : '';
+              let n = 1;
+              let next = `${base} (${n})${ext}`;
+              while (taken.includes(next)) {
+                n++;
+                next = `${base} (${n})${ext}`;
+              }
+              return next;
+            };
+
+            const existing = (path) => (system.fileSystem.ls(path) || []).map(i => i.name);
+
+            const ensureDirExists = (baseDir, relDir) => {
+              if (!relDir) return baseDir;
+              const parts = relDir.split('/').filter(Boolean);
+              let cur = baseDir;
+              for (const part of parts) {
+                const tryPath = `${cur}/${part}`;
+                const resolved = system.fileSystem._resolvePath(tryPath);
+                if (!resolved) {
+                  try {
+                    system.fileSystem.mkdir(cur, part);
+                  } catch (err) { }
+                }
+                const got = system.fileSystem.getResolvedPath(cur, part)[0];
+                if (got) cur = got;
+              }
+              return cur;
+            };
+
+            const readAllEntries = (reader) => new Promise((resolve) => {
+              const entries = [];
+              const read = () => reader.readEntries((results) => {
+                if (!results || results.length === 0) return resolve(entries);
+                entries.push(...Array.from(results));
+                read();
+              });
+              read();
+            });
+
+            const traverseEntry = async (entry, relPath = '') => {
+              if (entry.isFile) {
+                const file = await new Promise((res, rej) => entry.file(res, rej));
+                try {
+                  const parentRel = relPath ? relPath : '';
+                  const parentDir = ensureDirExists(destDir, parentRel);
+                  const taken = existing(parentDir);
+                  const uniqueName = makeUnique(file.name, taken);
+                  const buffer = await file.arrayBuffer();
+                  const uint8 = new Uint8Array(buffer);
+                  const fullPath = (parentDir.endsWith('/') ? parentDir.slice(0, -1) : parentDir) + '/' + uniqueName;
+                  await system.fileSystem.writeFile(fullPath, uint8, true);
+                  if (!parentRel) successes.push(uniqueName);
+                } catch (err) {
+                  errors.push({ name: file.name, error: String(err && err.message ? err.message : err) });
+                }
+              } else if (entry.isDirectory) {
+                const dirName = entry.name;
+                let uniqueDirName = dirName;
+                if (!relPath) {
+                  const taken = existing(destDir);
+                  uniqueDirName = makeUnique(dirName, taken);
+                }
+                const newRel = relPath ? `${relPath}/${uniqueDirName}` : uniqueDirName;
+                ensureDirExists(destDir, newRel);
+                const reader = entry.createReader();
+                const children = await readAllEntries(reader);
+                for (const child of children) {
+                  await traverseEntry(child, newRel);
+                }
+                if (!relPath) successes.push(uniqueDirName);
+              }
+            };
+
+            let destDir = '/bin/desktop';
+            this.clearSelection();
+            if (targetIcon) {
+              const targetItem = this.getDesktopItemFromIcon(targetIcon);
+              if (targetItem) {
+                if (targetItem.type === 'link') {
+                  const resolved = system.fileSystem._resolvePath(targetItem.target);
+                  if (resolved && resolved.type === 'directory') {
+                    destDir = targetItem.target;
+                    this.selectedIcons.add(targetIcon);
+                  }
+                } else if (targetItem.type === 'directory') {
+                  destDir = system.fileSystem.getResolvedPath('/bin/desktop', targetItem.name)[0];
+                  this.selectedIcons.add(targetIcon);
+                }
+              }
+            }
+
+            if (items.length > 0 && items[0] && typeof items[0].webkitGetAsEntry === 'function') {
+              for (const item of items) {
+                try {
+                  const entry = item.webkitGetAsEntry();
+                  if (!entry) continue;
+                  await traverseEntry(entry, '');
+                } catch (err) {
+                  errors.push({ name: item.name || '(entry)', error: String(err && err.message ? err.message : err) });
+                }
+              }
+            } else {
+              const takenNames = existing(destDir);
+              for (const file of files) {
+                try {
+                  const uniqueName = makeUnique(file.name, takenNames);
+                  const buffer = await file.arrayBuffer();
+                  const uint8 = new Uint8Array(buffer);
+                  const fullPath = (destDir.endsWith('/') ? destDir.slice(0, -1) : destDir) + '/' + uniqueName;
+                  await system.fileSystem.writeFile(fullPath, uint8, true);
+                  takenNames.push(uniqueName);
+                  successes.push(uniqueName);
+                } catch (err) {
+                  errors.push({ name: file.name, error: String(err && err.message ? err.message : err) });
+                }
+              }
+            }
+
+            if (errors.length > 0) {
+              const errorList = errors.map(e => `<br>• ${e.name}: ${e.error}`).join('\n');
+              new Dialog('Import Errors', `${successes.length} files imported.`, `Errors:${errorList}`, 'warning', ['Ok'], 'Ok');
+            }
+            if (successes.length > 0) {
+              const destIsDesktop = destDir === '/bin/desktop';
+              if (destIsDesktop) {
+                const importedItems = successes.map(name => system.fileSystem._resolvePath(`/bin/desktop/${name}`)).filter(Boolean);
+                this.addIconsToDesktop(importedItems);
+              } else {
+                this.refreshDesktop();
+              }
+            }
+            try {
+              const destIsDesktop = destDir === '/bin/desktop';
+              if (destIsDesktop && successes.length > 0) {
+                this.restoreSelectedIcons(successes);
+              }
+            } catch (err) {
+              console.error('Failed to restore selection for imported icons:', err);
+            }
+            return;
+          }
+        } catch (err) {
+          console.error('Error handling external drop:', err);
+        }
         if (targetIcon) return;
         e.preventDefault();
         if (!this.draggedIcon) return;
@@ -1660,7 +1788,7 @@
         if (selectedIcons.length === 0) return;
         const orderedSelectedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => selectedIcons.includes(icon));
         const { desktopRect, paddingLeft, paddingTop, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
-        const dropX = Math.max(0, e.clientX - desktopRect.left - paddingLeft / 2);
+        const dropX = Math.max(0, e.clientX - desktopRect.left - paddingLeft);
         const dropY = Math.max(0, e.clientY - desktopRect.top - paddingTop);
         const nonDraggedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => !selectedIcons.includes(icon));
         const columns = Math.max(1, Math.floor(desktopRect.width / (cellSize + columnGap)));
@@ -1669,18 +1797,23 @@
         let targetCellIndex = this.findNextFreeCell(targetIndex, occupied, rows, columns);
         orderedSelectedIcons.forEach((icon, idx) => {
           let cellIndex = this.findNextFreeCell(targetCellIndex + idx, occupied, rows, columns);
+          occupied.add(cellIndex);
           const col = Math.floor(cellIndex / rows);
           const row = cellIndex % rows;
           icon.style.gridColumnStart = String(col + 1);
           icon.style.gridRowStart = String(row + 1);
         });
+        this.handleDragEnd(e);
       }
-      handleDragEnd(e) {
-        this.selectedIcons.forEach(icon => icon.classList.remove('dragging'));
-        this.saveDesktopIconPositions();
+      handleDragEnd(e = null) {
+        this.hideGridOverlay();
+        this.desktop.querySelectorAll('.desktop-icon.dragging')?.forEach(i => i.classList.remove('dragging'));
+        if (!this.draggedIcon && this.draggedIcons.length === 0) {
+          return;
+        }
         this.draggedIcon = null;
         this.draggedIcons = [];
-        this.hideGridOverlay();
+        this.saveDesktopIconPositions();
       }
       showGridOverlay() {
         const { desktopRect, paddingTop, paddingBottom, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
@@ -1689,20 +1822,16 @@
       }
       saveDesktopIconPositions() {
         this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
-          const item = JSON.parse(icon.dataset.item);
+          const itemName = this.getDesktopItemName(icon);
+          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0]) : null;
           const col = parseInt(icon.style.gridColumnStart || '', 10) - 1;
           const row = parseInt(icon.style.gridRowStart || '', 10) - 1;
-          item.parameters = item.parameters || {};
-          item.parameters.desktopPosition = { col, row };
-          icon.dataset.item = JSON.stringify(item);
-
-          const desktopItem = fileSystem._resolvePath(`/bin/desktop/${item.name}`);
           if (desktopItem) {
             desktopItem.parameters = desktopItem.parameters || {};
             desktopItem.parameters.desktopPosition = { col, row };
           }
         });
-        fileSystem.saveFileSystem();
+        system.fileSystem.saveFileSystem();
       }
       hideGridOverlay() {
         if (this.gridOverlay) {
@@ -1720,7 +1849,6 @@
         if (icon) {
           icon.draggable = false;
         }
-        this.closeContextMenu();
         this.hideGridOverlay();
         this.pendingTouchContextMenu = false;
         if (this.touchTimer) {
@@ -1735,13 +1863,11 @@
         if (icon) {
           const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
           const currentIndex = icons.indexOf(icon);
-          if (this.selectedIcons.has(icon)) {
-            this.lastSelectedIndex = currentIndex;
-          } else {
+          if (!this.selectedIcons.has(icon)) {
             this.clearSelection();
             this.selectedIcons.add(icon);
-            this.lastSelectedIndex = currentIndex;
           }
+          this.lastSelectedIndex = currentIndex;
           this.desktop.querySelectorAll('.desktop-icon').forEach(i => {
             i.classList.toggle('selected', this.selectedIcons.has(i));
           });
@@ -1759,7 +1885,6 @@
           clearTimeout(this.touchTimer);
           this.touchTimer = null;
           this.isTouchDragging = true;
-          this.closeContextMenu();
           this.hideGridOverlay();
           if (this.draggedIcon && this.selectedIcons.has(this.draggedIcon)) {
             this.draggedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => this.selectedIcons.has(icon));
@@ -1770,7 +1895,7 @@
         if (this.isTouchDragging && this.draggedIcons.length > 0) {
           if (e.preventDefault && e.cancelable) e.preventDefault();
           const { desktopRect, paddingLeft, paddingTop, rowGap, columnGap, cellSize, rows } = this.getDesktopGridMetrics();
-          const dropX = Math.max(0, touch.clientX - desktopRect.left - paddingLeft / 2);
+          const dropX = Math.max(0, touch.clientX - desktopRect.left - paddingLeft);
           const dropY = Math.max(0, touch.clientY - desktopRect.top - paddingTop);
           const nonDraggedIcons = Array.from(this.desktop.querySelectorAll('.desktop-icon')).filter(icon => !this.draggedIcons.includes(icon));
           const columns = Math.max(1, Math.floor(desktopRect.width / (cellSize + columnGap)));
@@ -1779,6 +1904,7 @@
           let targetCellIndex = this.findNextFreeCell(targetIndex, occupied, rows, columns);
           this.draggedIcons.forEach((icon, idx) => {
             let cellIndex = this.findNextFreeCell(targetCellIndex + idx, occupied, rows, columns);
+            occupied.add(cellIndex);
             const col = Math.floor(cellIndex / rows);
             const row = cellIndex % rows;
             icon.style.gridColumnStart = String(col + 1);
@@ -1796,11 +1922,7 @@
           this.touchTimer = null;
         }
         if (this.isTouchDragging) {
-          this.selectedIcons.forEach(i => i.classList.remove('dragging'));
-          this.saveDesktopIconPositions();
-          this.draggedIcon = null;
-          this.draggedIcons = [];
-          this.hideGridOverlay();
+          this.handleDragEnd();
           this.isTouchDragging = false;
           this.lastTapTime = 0;
           this.lastTapIcon = null;
@@ -1817,7 +1939,8 @@
             this.lastTapIcon = null;
             this.lastTouchOpenedIcon = icon;
             this.lastTouchOpenedTime = currentTapTime;
-            this.handleDblClick(JSON.parse(icon.dataset.item));
+            const desktopItem = this.getDesktopItemFromIcon(icon);
+            if (desktopItem) this.handleDblClick(desktopItem);
             this.touchTargetIcon = null;
             return;
           }
@@ -1833,27 +1956,20 @@
         if (e.preventDefault && e.cancelable) e.preventDefault();
         e.stopPropagation?.();
         this.setActiveDesktop();
-        if (this.contextMenu) {
-          this.contextMenu.remove();
-        }
 
-        const clickedIcon = e.target.closest('.desktop-icon');
-        if (clickedIcon && !this.selectedIcons.has(clickedIcon)) {
-          this.clearSelection();
-          this.selectedIcons.add(clickedIcon);
-          clickedIcon.classList.add('selected');
-        }
-
-        const isDesktopTarget = !clickedIcon;
         const selectedItems = Array.from(this.selectedIcons);
         const selectionCount = selectedItems.length;
+        const isDesktopTarget = !e.target.closest('.desktop-icon') || selectionCount === 0;
+        if (isDesktopTarget) {
+          this.clearSelection();
+        }
         const single = !isDesktopTarget && selectionCount === 1;
         let mainItem = null;
         if (single) {
-          mainItem = JSON.parse(selectedItems[0].dataset.item);
+          mainItem = this.getDesktopItemFromIcon(selectedItems[0]);
         }
-        const isFolder = single && (mainItem.type === 'directory' || (mainItem.type === 'link' && fileSystem._resolvePath(mainItem.target)?.type === 'directory'));
-        const isLink = single && mainItem.type === 'link';
+        const isFolder = single && (mainItem?.type === 'directory' || (mainItem?.type === 'link' && system.fileSystem._resolvePath(mainItem.target)?.type === 'directory'));
+        const isLink = single && mainItem?.type === 'link';
         const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
         const hasClipboard = clipboardData && clipboardData.paths && clipboardData.paths.length > 0;
 
@@ -1865,9 +1981,9 @@
               iconHtml: icons.paste,
               label: 'Paste',
               className: 'paste',
+              badge: clipboardData.paths.length.toString(),
               onClick: () => {
                 this.pasteSelectedIcons();
-                this.closeContextMenu();
               }
             });
             items.push({ isSeparator: true });
@@ -1877,22 +1993,29 @@
             label: 'New Folder',
             className: 'new-folder',
             onClick: () => {
-              this.closeContextMenu();
               let newName = "New Folder";
               let counter = 0;
-              const files = fileSystem.ls('/bin/desktop');
+              const files = system.fileSystem.ls('/bin/desktop');
               while (files.some(item => item.name === newName)) {
                 counter++;
                 newName = `New Folder (${counter})`;
               }
               try {
-                fileSystem.mkdir('/bin/desktop', newName);
-                this.renamingIconName = newName;
-                this.refreshDesktop();
+                system.fileSystem.mkdir('/bin/desktop', newName);
+                const newItem = system.fileSystem._resolvePath(`/bin/desktop/${newName}`);
+                if (newItem) {
+                  this.addIconsToDesktop([newItem]);
+                  this.clearSelection();
+                  const newIcon = this.desktop.querySelector(`[data-item-name="${newName}"]`);
+                  if (newIcon) {
+                    this.selectedIcons.add(newIcon);
+                    newIcon.classList.add('selected');
+                    this.renameIcon(newIcon);
+                  }
+                }
               } catch (error) {
                 new Dialog('Error', 'Failed to create folder', error.message, 'error', ['OK'], 'OK');
               }
-              this.closeContextMenu();
             }
           });
           items.push({
@@ -1900,22 +2023,29 @@
             label: 'New File',
             className: 'new-file',
             onClick: () => {
-              this.closeContextMenu();
               let newName = "New File.txt";
               let counter = 0;
-              const files = fileSystem.ls('/bin/desktop');
+              const files = system.fileSystem.ls('/bin/desktop');
               while (files.some(item => item.name === newName)) {
                 counter++;
                 newName = `New File (${counter}).txt`;
               }
               try {
-                fileSystem.touch('/bin/desktop', newName);
-                this.renamingIconName = newName;
-                this.refreshDesktop();
+                system.fileSystem.touch('/bin/desktop', newName);
+                const newItem = system.fileSystem._resolvePath(`/bin/desktop/${newName}`);
+                if (newItem) {
+                  this.addIconsToDesktop([newItem]);
+                  this.clearSelection();
+                  const newIcon = this.desktop.querySelector(`[data-item-name="${newName}"]`);
+                  if (newIcon) {
+                    this.selectedIcons.add(newIcon);
+                    newIcon.classList.add('selected');
+                    this.renameIcon(newIcon);
+                  }
+                }
               } catch (error) {
                 new Dialog('Error', 'Failed to create file', error.message, 'error', ['OK'], 'OK');
               }
-              this.closeContextMenu();
             }
           });
           items.push({
@@ -1924,7 +2054,6 @@
             className: 'copyPath',
             onClick: () => {
               this.copyCurrentDesktopPath();
-              this.closeContextMenu();
             }
           });
           items.push({ isSeparator: true });
@@ -1934,7 +2063,6 @@
             className: 'personalize',
             onClick: () => {
               this.showPersonalizeMenu();
-              this.closeContextMenu();
             }
           });
           items.push({ isSeparator: true });
@@ -1943,7 +2071,6 @@
             label: 'Refresh',
             className: 'refresh',
             onClick: () => {
-              this.closeContextMenu();
               this.refreshDesktop();
             }
           });
@@ -1955,8 +2082,10 @@
             label: openLabel,
             className: 'open',
             onClick: () => {
-              selectedItems.forEach(item => this.handleDblClick(JSON.parse(item.dataset.item)));
-              this.closeContextMenu();
+              selectedItems.forEach(item => {
+                const desktopItem = this.getDesktopItemFromIcon(item);
+                if (desktopItem) this.handleDblClick(desktopItem);
+              });
             }
           });
           items.push({
@@ -1965,7 +2094,6 @@
             className: 'copy',
             onClick: () => {
               this.copySelectedIcons();
-              this.closeContextMenu();
             }
           });
           items.push({
@@ -1974,7 +2102,6 @@
             className: 'cut',
             onClick: () => {
               this.cutSelectedIcons();
-              this.closeContextMenu();
             }
           });
           items.push({
@@ -1983,7 +2110,6 @@
             className: 'copyPath',
             onClick: () => {
               this.copySelectedIconPaths();
-              this.closeContextMenu();
             }
           });
           items.push({ isSeparator: true });
@@ -1994,7 +2120,6 @@
               className: 'rename',
               onClick: () => {
                 this.renameIcon(selectedItems[0]);
-                this.closeContextMenu();
               }
             });
           }
@@ -2004,54 +2129,122 @@
             className: 'delete',
             onClick: () => {
               this.deleteSelectedIcons();
-              this.closeContextMenu();
             }
           });
         }
 
-        this.contextMenu = ContextMenuBuilder.renderMenu({
+        const contextMenu = ContextMenuBuilder.renderMenu({
           event: e,
-          headerIconHtml: isDesktopTarget ? icons.desktop : (single ? (isFolder ? icons.folder : (isLink ? icons.shortcut : this.getIconForFileType(fileSystem.getFileType(mainItem.name).type))) : icons.files),
+          headerIconHtml: isDesktopTarget ? icons.desktop : (single ? (isFolder ? icons.folder : (isLink ? icons.shortcut : this.getIconForFileType(system.fileSystem.getFileType(mainItem.name).type))) : icons.files),
           headerLabelText: isDesktopTarget ? 'Desktop' : (single ? mainItem.displayName : 'Selected items'),
           headerBadge: (!isDesktopTarget && !single) ? selectionCount.toString() : '',
           items,
-          appendTo: document.body
+          appendTo: null
         });
-
-        setTimeout(() => {
-          document.addEventListener('click', () => this.closeContextMenu(), { once: true });
-        }, 0);
       }
       refreshDesktop() {
         const selectedIconNames = this.getSelectedIconNames();
-        this.desktop.innerHTML = '';
         this.selectedIcons.clear();
         this.ctrlSelectedIcons.clear();
-        this.loadDesktopShortcuts();
-        this.restoreSelectedIcons(selectedIconNames);
+        setTimeout(() => {
+          this.desktop.innerHTML = '';
+          this.loadDesktopShortcuts();
+          this.restoreSelectedIcons(selectedIconNames);
+          this.updateGridRows();
+        }, 0);
+      }
+      getDesktopItemName(icon) {
+        return icon?.dataset?.itemName || '';
+      }
+      getDesktopItemFromIcon(icon) {
+        const itemName = this.getDesktopItemName(icon);
+        if (!itemName) return null;
+        const [path, args] = system.fileSystem.getResolvedPath('/bin/desktop', itemName);
+        const item = system.fileSystem._resolvePath(path + (args || ''));
+        if (!item) return null;
+        const displayName = system.fileSystem._splitPathAndArgs(item.name)[0];
+        item.displayName = displayName.endsWith('.app') ? displayName.slice(0, -4) : displayName;
+        return item;
       }
       getSelectedIconNames() {
-        return Array.from(this.selectedIcons).map(icon => {
-          const item = JSON.parse(icon.dataset.item);
-          return item.name;
-        });
+        return Array.from(this.selectedIcons).map(icon => this.getDesktopItemName(icon));
       }
       restoreSelectedIcons(iconNames) {
         if (!iconNames || iconNames.length === 0) return;
         const iconSet = new Set(iconNames);
         this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
-          const item = JSON.parse(icon.dataset.item);
-          if (iconSet.has(item.name)) {
+          const itemName = this.getDesktopItemName(icon);
+          if (iconSet.has(itemName)) {
             this.selectedIcons.add(icon);
             icon.classList.add('selected');
           }
         });
       }
+      updateIconAfterRename(icon, newItemName) {
+        if (!icon || !newItemName) return;
+        const item = system.fileSystem._resolvePath(`/bin/desktop/${newItemName}`);
+        if (!item) return;
+        icon.remove();
+        this.selectedIcons.clear();
+        this.ctrlSelectedIcons.clear();
+        this.createDesktopIcon(item, 0);
+        const newIcon = Array.from(this.desktop.querySelectorAll('.desktop-icon')).find(i => this.getDesktopItemName(i) === newItemName);
+        if (newIcon) {
+          this.selectedIcons.add(newIcon);
+          newIcon.classList.add('selected');
+        }
+      }
+      removeIconFromDesktop(icon) {
+        if (!icon) return;
+        this.selectedIcons.delete(icon);
+        this.ctrlSelectedIcons.delete(icon);
+        icon.remove();
+      }
+      addIconsToDesktop(items) {
+        if (!items || items.length === 0) return;
+        const desktopItems = system.fileSystem.ls('/bin/desktop') || [];
+        const { rows } = this.getDesktopGridMetrics();
+        const occupied = new Set();
+        this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
+          const col = parseInt(icon.style.gridColumnStart || 0, 10);
+          const row = parseInt(icon.style.gridRowStart || 0, 10);
+          if (col > 0 && row > 0) {
+            occupied.add((col - 1) * rows + (row - 1));
+          }
+        });
+        items.forEach((item, idx) => {
+          let position = item.parameters?.desktopPosition;
+          if (!position) {
+            let nextFreeIndex = 0;
+            while (occupied.has(nextFreeIndex)) {
+              nextFreeIndex++;
+            }
+            occupied.add(nextFreeIndex);
+            const col = Math.floor(nextFreeIndex / rows);
+            const row = nextFreeIndex % rows;
+            position = { col, row };
+            item.parameters = item.parameters || {};
+            item.parameters.desktopPosition = position;
+            const desktopItem = system.fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+            if (desktopItem) {
+              desktopItem.parameters = desktopItem.parameters || {};
+              desktopItem.parameters.desktopPosition = position;
+            }
+            system.fileSystem.saveFileSystem();
+          } else if (!occupied.has(position.col * rows + position.row)) {
+            occupied.add(position.col * rows + position.row);
+          }
+          const currentIcon = this.desktop.querySelector(`[data-item-name="${item.name}"]`);
+          if (!currentIcon) {
+            this.createDesktopIcon(item, 0);
+          }
+        });
+      }
       getDesktopSelectedPaths() {
         return Array.from(this.selectedIcons).map(icon => {
-          const shortcut = JSON.parse(icon.dataset.item);
-          return fileSystem.getResolvedPath('/bin/desktop', shortcut.name)[0];
-        });
+          const itemName = this.getDesktopItemName(icon);
+          return system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0];
+        }).filter(Boolean);
       }
       copySelectedIcons() {
         const paths = this.getDesktopSelectedPaths();
@@ -2075,7 +2268,7 @@
         for (const sourcePath of paths) {
           const fileName = sourcePath.split('/').pop();
           try {
-            const targetPath = fileSystem.getResolvedPath('/bin/desktop', fileName)[0];
+            const targetPath = system.fileSystem.getResolvedPath('/bin/desktop', fileName)[0];
             if (sourcePath === targetPath) {
               if (type === 'cut') {
                 successes.push(fileName);
@@ -2084,9 +2277,9 @@
               throw new Error('Source and destination are the same');
             }
             if (type === 'copy') {
-              fileSystem.cp(sourcePath, targetPath);
+              system.fileSystem.cp(sourcePath, targetPath);
             } else if (type === 'cut') {
-              fileSystem.mv(sourcePath, targetPath);
+              system.fileSystem.mv(sourcePath, targetPath);
             }
             successes.push(fileName);
           } catch (e) {
@@ -2102,7 +2295,10 @@
           const errorList = errors.map(e => `<br>• ${e.file}: ${e.error}`).join('\n');
           new Dialog('Desktop - Paste Errors', `${successes.length} of ${paths.length} items pasted successfully.`, `Errors:${errorList}`, 'warning', ['Ok'], 'Ok');
         }
-        this.refreshDesktop();
+        if (successes.length > 0) {
+          const pastedItems = successes.map(name => system.fileSystem._resolvePath(`/bin/desktop/${name}`)).filter(Boolean);
+          this.addIconsToDesktop(pastedItems);
+        }
       }
       copySelectedIconPaths() {
         const paths = this.getDesktopSelectedPaths();
@@ -2112,24 +2308,92 @@
       copyCurrentDesktopPath() {
         copyText('/bin/desktop');
       }
-      closeContextMenu() {
-        if (this.contextMenu) {
-          this.contextMenu.remove();
-          this.contextMenu = null;
-        }
-      }
       renameIcon(icon) {
         if (!icon) return;
-        const shortcut = JSON.parse(icon.dataset.item);
-        if (!shortcut) return;
-        this.renamingIconName = shortcut.name;
-        this.refreshDesktop();
+        const itemName = this.getDesktopItemName(icon);
+        if (!itemName) return;
+        this.renamingIconName = itemName;
+        const label = icon.querySelector('.label');
+        if (label) {
+          const input = document.createElement('textarea');
+          input.className = 'rename-input';
+          const item = this.getDesktopItemFromIcon(icon);
+          input.value = item?.displayName || '';
+          icon.classList.add('renaming');
+          const oldLabel = icon.querySelector('.label');
+          if (oldLabel) oldLabel.remove();
+          icon.appendChild(input);
+          const adjustHeight = () => {
+            input.style.height = '1px';
+            input.style.height = input.scrollHeight + 'px';
+          };
+          const commitRename = (newValue) => {
+            if (!this.renamingIconName) {
+              this.renamingIconName = null;
+              this.updateIconAfterRename(icon, itemName);
+              return;
+            }
+            const trimmed = String(newValue || '').trim();
+            if (!trimmed || trimmed === itemName) {
+              this.renamingIconName = null;
+              this.updateIconAfterRename(icon, itemName);
+              return;
+            }
+            const [oldName, args] = system.fileSystem._splitPathAndArgs(this.renamingIconName);
+            const nameWithExt = trimmed + ((oldName.endsWith('.app') && item?.type === 'file') ? '.app' : '');
+            const [sourcePath, sourceArgs] = system.fileSystem.getResolvedPath('/bin/desktop', oldName);
+            const [targetPath, targetArgs] = system.fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
+            try {
+              system.fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
+              this.renamingIconName = null;
+              this.updateIconAfterRename(icon, nameWithExt);
+            } catch (e) {
+              new Dialog("Error", `Failed to rename`, e.message, "error", ['OK'], 'OK');
+              this.renamingIconName = null;
+              this.updateIconAfterRename(icon, itemName);
+            }
+          };
+          let renameCommittedByEnter = false;
+          input.addEventListener('keydown', (e) => {
+            if (!this.renamingIconName) return;
+            e.stopPropagation();
+            if (e.code === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              renameCommittedByEnter = true;
+              commitRename(input.value);
+            } else if (e.code === 'Escape') {
+              e.preventDefault();
+              renameCommittedByEnter = true;
+              this.renamingIconName = null;
+              this.updateIconAfterRename(icon, itemName);
+            } else {
+              setTimeout(adjustHeight, 0);
+            }
+          });
+          input.addEventListener('input', adjustHeight);
+          input.addEventListener('blur', () => {
+            if (renameCommittedByEnter) {
+              renameCommittedByEnter = false;
+              return;
+            }
+            commitRename(input.value);
+          });
+          input.addEventListener('click', (e) => e.stopPropagation());
+          input.addEventListener('dblclick', (e) => e.stopPropagation());
+          input.addEventListener('contextmenu', (e) => e.stopPropagation());
+          input.addEventListener('mousedown', (e) => e.stopPropagation());
+          input.addEventListener('mouseup', (e) => e.stopPropagation());
+          input.addEventListener('dragstart', (e) => e.stopPropagation());
+          adjustHeight();
+          input.focus();
+          input.select();
+        }
       }
       showPersonalizeMenu() {
         new Dialog('Personalize', 'Coming Soon', 'Personalization options will be available in a future update. Stay tuned!', 'info', ['Ok'], 'Ok');
       }
       clearSelection() {
-        this.desktop.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
+        this.desktop.querySelectorAll('.desktop-icon.selected')?.forEach(i => i.classList.remove('selected'));
         this.selectedIcons.clear();
         this.ctrlSelectedIcons.clear();
         this.lastSelectedIndex = -1;
@@ -2138,7 +2402,6 @@
         this.desktop.addEventListener('click', (e) => {
           if (e.target === this.desktop) {
             if (!e.ctrlKey && !e.shiftKey) this.clearSelection();
-            this.closeContextMenu();
             this.setActiveDesktop();
           }
         });
@@ -2149,6 +2412,10 @@
 
         this.desktop.addEventListener('drop', (e) => {
           if (e.target === this.desktop) this.handleDrop(e, null);
+        });
+
+        this.desktop.addEventListener('dragend', (e) => {
+          if (this.draggedIcon) this.handleDragEnd(e);
         });
 
         this.desktop.addEventListener('touchstart', (e) => this.handleDesktopTouchStart(e), { passive: false });
@@ -2194,7 +2461,7 @@
         document.querySelectorAll(".modal-window").forEach((window) => {
           window.classList.remove("active");
         });
-        taskbar?.updateTaskbar();
+        system.taskbar?.updateTaskbar();
       }
 
       setActiveDesktop() {
@@ -2208,14 +2475,14 @@
         const confirm = await new Dialog("Confirm Delete", `Are you sure you want to delete ${selectedIcons.length} item${selectedIcons.length === 1 ? '' : 's'}?`, "This action cannot be undone.", "warning", ['Delete', 'Cancel'], 'Cancel');
         if (!confirm || confirm !== 'Delete') return;
         selectedIcons.forEach(icon => {
-          const shortcut = JSON.parse(icon.dataset.item);
+          const itemName = this.getDesktopItemName(icon);
+          const item = this.getDesktopItemFromIcon(icon);
           try {
-            const [path, args] = fileSystem.getResolvedPath('/bin/desktop/', shortcut.name);
-            fileSystem.rm(path + (args ? ` ${args}` : ''), true);
-            icon.remove();
-            this.selectedIcons.delete(icon);
+            const [path, args] = system.fileSystem.getResolvedPath('/bin/desktop/', itemName);
+            system.fileSystem.rm(path + (args ? ` ${args}` : ''), true);
+            this.removeIconFromDesktop(icon);
           } catch (e) {
-            new Dialog("Error", `Failed to delete '${shortcut.displayName}'`, e.message, "error", ['OK'], 'OK');
+            new Dialog("Error", `Failed to delete '${item?.displayName || itemName}'`, e.message, "error", ['OK'], 'OK');
           }
         });
       }
@@ -2265,15 +2532,15 @@
           this.__showBatteryPopup();
         });
 
-        this.systemTray.appendChild(this.clockItem);
         this.systemTray.appendChild(this.batteryItem);
+        this.systemTray.appendChild(this.clockItem);
         this.taskbar.appendChild(this.systemTray);
 
         setInterval(() => this.__updateClock(), 1000);
         this.__updateClock();
 
-        this.__initBattery();
-        setInterval(() => this.__updateBattery(), 10000);
+        const isAvBatt = this.__initBattery();
+        if (isAvBatt) setInterval(() => this.__updateBattery(), 10000);
       }
 
       __initBattery() {
@@ -2281,7 +2548,7 @@
           this.batteryData = null;
           this.batteryItem.title = 'Battery not available';
           this.__updateBatteryUI();
-          return;
+          return false;
         }
 
         const getBatteryPromise = navigator.getBattery ?
@@ -2296,11 +2563,13 @@
           battery.addEventListener('levelchange', () => this.__updateBattery());
           battery.addEventListener('chargingtimechange', () => this.__updateBattery());
           battery.addEventListener('dischargingtimechange', () => this.__updateBattery());
+          return true;
         }).catch(() => {
           this.batteryData = null;
           this.batteryItem.title = 'Battery not available';
           this.__updateBatteryUI();
         });
+        return false;
       }
 
       __updateClock() {
@@ -2309,8 +2578,9 @@
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = String(now.getFullYear());
 
-        this.clockItem.querySelector('.system-tray-text').textContent = `${day}/${month} ${hours}:${minutes}`;
+        this.clockItem.querySelector('.system-tray-text').innerText = `${hours}:${minutes}\n${day}.${month}.${year}`;
       }
 
       __updateBattery() {
@@ -2408,6 +2678,10 @@
         }, 0);
       }
 
+      getTaskbarHeight() {
+        return this.taskbar?.offsetHeight || null;
+      }
+
       updateTaskbar() {
         if (!this.taskbar) return;
         if (!this.systemTray || this.systemTray.parentElement !== this.taskbar) {
@@ -2447,7 +2721,7 @@
           const original = window.openApplications[method];
           window.openApplications[method] = function (...args) {
             const result = original.apply(this, args);
-            setTimeout(() => taskbar.updateTaskbar(), 0);
+            setTimeout(() => system.taskbar.updateTaskbar(), 0);
             return result;
           };
         });
@@ -2502,7 +2776,7 @@
 
         item.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          if (!e.isLongPress && (e.pointerType === 'touch' || e.type.startsWith('touch'))) {
+          if (!e.isLongPress && isTouchEvent(e)) {
             e.stopPropagation();
             return;
           }

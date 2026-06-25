@@ -6,6 +6,7 @@
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  --border-radius: 5px;
 }
 
 .ps-path-container {
@@ -19,7 +20,7 @@
   padding: 6px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(0, 255, 0, 0.3);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   color: #e0e0e0;
   font-family: inherit;
   min-width: 0;
@@ -29,7 +30,7 @@
   padding: 6px 12px;
   background: rgba(0, 255, 0, 0.1);
   border: 1px solid rgba(0, 255, 0, 0.3);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   color: #00ff00;
   cursor: pointer;
 }
@@ -45,10 +46,10 @@
 .ps-sidebar {
   width: 120px;
   max-width: 30%;
-  min-width: 80px;
+  min-width: 70px;
   background: rgba(0, 20, 0, 0.4);
   border: 1px solid rgba(0, 255, 0, 0.2);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   padding: 8px;
   overflow-y: auto;
   display: flex;
@@ -62,7 +63,7 @@
   flex: 1;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(0, 255, 0, 0.2);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   padding: 8px;
   overflow-y: auto;
   display: flex;
@@ -74,7 +75,7 @@
 
 .ps-sidebar-item {
   padding: 6px;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
@@ -101,7 +102,7 @@
 .ps-file-item {
   padding: 0 6px;
   height: 30px;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 12px;
   color: #e0e0e0;
@@ -130,6 +131,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 .ps-file-item:hover {
@@ -158,6 +160,7 @@
   background: rgba(0, 0, 0, 0.4);
   border-top: 1px solid rgba(0, 255, 0, 0.2);
   padding: 10px;
+  border-radius: var(--border-radius);
   display: flex;
   gap: 10px;
   align-items: center;
@@ -188,7 +191,7 @@
   padding: 6px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(0, 255, 0, 0.3);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   color: #e0e0e0;
   font-family: inherit;
   min-width: 20px;
@@ -204,7 +207,7 @@
   padding: 8px 16px;
   background: rgba(0, 255, 0, 0.2);
   border: 1px solid rgba(0, 255, 0, 0.5);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   color: #00ff00;
   cursor: pointer;
   font-weight: bold;
@@ -219,7 +222,7 @@
   padding: 8px 16px;
   background: rgba(100, 100, 100, 0.2);
   border: 1px solid rgba(100, 100, 100, 0.5);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   color: #c0c0c0;
   cursor: pointer;
 }
