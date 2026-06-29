@@ -296,7 +296,7 @@ class Modal {
     minButton.title = "Minimize";
     maxButton.title = "Maximize";
     this.modWindow.classList.add("app-size");
-    this.modWindow.style.width = window.innerWidth > 600 ? "600px" : "90vw";
+    this.modWindow.style.width = window.innerWidth > 800 ? '700px' : window.innerWidth > 600 ? "600px" : "90vw";
     this.setupResizeHandle();
   }
 
@@ -1052,7 +1052,7 @@ class Terminal {
       if (!button || !button.classList.contains("active")) return;
 
       button.classList.remove("active");
-      e.preventDefault();
+      if (e.preventDefault && e.cancelable) e.preventDefault();
 
       const key = button.dataset.key;
       if (!this.input || !key || !this.startHandleKey || key !== this.startHandleKey) {
@@ -3368,9 +3368,9 @@ class PathSelector {
     this.sidebar.innerHTML = '';
 
     const items = [
+      { name: 'Root', path: '/' },
       { name: 'Home', path: '/home' },
-      { name: 'Desktop', path: '/bin/desktop' },
-      { name: 'Root', path: '/' }
+      { name: 'Desktop', path: '/bin/desktop' }
     ];
 
     items.forEach(item => {
@@ -3806,6 +3806,125 @@ class VideoPlayer {
       if (this.mouseTimeout) clearTimeout(this.mouseTimeout);
       this.mouseTimeout = null;
     }
+  }
+}
+
+class SettingsApp {
+  constructor(args = null, path = null) {
+    const requestedSection = typeof args === 'string' ? args.toLowerCase() : null;
+    const activeSection = requestedSection === 'appearance' ? 'appearance' : 'personalization';
+    this.iconHtml = icons.settings;
+    this.app = new Modal("Settings", this.iconHtml);
+    this.appMain = this.app.appMain;
+    this.app.setApp();
+    this.app.setupInfoBtn('Settings', 'Settings is the control center for your desktop. Use it to change the wallpaper and personalize the system.');
+    this.appMain.classList.add('settings-app');
+    this.wallpapers = [
+      {
+        name: 'Dark Aurora',
+        url: 'https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8d2FsbHBhcGVyJTIwNGt8ZW58MHx8MHx8fDA%3D'
+      },
+      {
+        name: 'Mountain Lake',
+        url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80'
+      },
+      {
+        name: 'Glass Grid',
+        url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80'
+      },
+      {
+        name: 'Ocean Mist',
+        url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80'
+      }
+    ];
+    const currentWallpaper = system.wallpaper.get();
+    const wallpaperCards = this.wallpapers.map((wallpaper) => {
+      const selected = wallpaper.url === currentWallpaper ? ' selected' : '';
+      return `
+        <button type="button" class="wallpaper-card${selected}" data-url="${encodeURIComponent(wallpaper.url)}">
+          <span class="wallpaper-thumb" style="background-image:url('${wallpaper.url}')"></span>
+          <span class="wallpaper-name">${wallpaper.name}</span>
+        </button>`;
+    }).join('');
+
+    this.appMain.innerHTML = `
+      <div class="settings-shell">
+        <aside class="settings-sidebar">
+          <div class="settings-sidebar-title">System Preferences</div>
+          <button type="button" class="settings-category active" data-section="personalization">Personalization</button>
+          <button type="button" class="settings-category" data-section="appearance">Appearance</button>
+        </aside>
+        <section class="settings-content">
+          <div class="settings-section active" data-section="personalization">
+            <div class="settings-section-header">
+              <div>
+                <div class="settings-section-title">Wallpaper</div>
+                <div class="settings-section-subtitle">Choose a background for your desktop.</div>
+              </div>
+              <button type="button" class="settings-button reset-wallpaper">Reset Wallpaper</button>
+            </div>
+            <div class="wallpaper-grid">${wallpaperCards}</div>
+          </div>
+          <div class="settings-section" data-section="appearance">
+            <div class="settings-section-header">
+              <div>
+                <div class="settings-section-title">Appearance</div>
+                <div class="settings-section-subtitle">Manage overall desktop style and window polish.</div>
+              </div>
+            </div>
+            <div class="settings-panel">
+              <div class="settings-panel-row">
+                <div class="settings-panel-label">Theme style</div>
+                <div class="settings-panel-value">macOS-inspired glass UI with subtle shadows.</div>
+              </div>
+              <div class="settings-panel-row">
+                <div class="settings-panel-label">Window accent</div>
+                <div class="settings-panel-value">Soft green glow and blur highlights.</div>
+              </div>
+              <div class="settings-panel-note">More appearance controls will be available soon.</div>
+            </div>
+          </div>
+        </section>
+      </div>`;
+
+    this.sectionButtons = this.appMain.querySelectorAll('.settings-category');
+    this.sections = this.appMain.querySelectorAll('.settings-section');
+    this.wallpaperButtons = this.appMain.querySelectorAll('.wallpaper-card');
+    this.resetButton = this.appMain.querySelector('.reset-wallpaper');
+    this.setActiveSection(activeSection);
+    this.addListeners();
+    this.app.setupExitBtn();
+  }
+
+  setActiveSection(section) {
+    this.sectionButtons.forEach((button) => button.classList.toggle('active', button.dataset.section === section));
+    this.sections.forEach((sectionEl) => sectionEl.classList.toggle('active', sectionEl.dataset.section === section));
+  }
+
+  addListeners() {
+    this.sectionButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const section = button.dataset.section;
+        this.sectionButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.section === section));
+        this.sections.forEach((sec) => sec.classList.toggle('active', sec.dataset.section === section));
+      });
+    });
+
+    this.wallpaperButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const url = decodeURIComponent(button.dataset.url);
+        system.wallpaper.apply(url);
+        this.wallpaperButtons.forEach((btn) => btn.classList.toggle('selected', btn === button));
+      });
+    });
+
+    this.resetButton.addEventListener('click', () => {
+      system.wallpaper.reset();
+      const activeUrl = system.wallpaper.get();
+      this.wallpaperButtons.forEach((btn) => {
+        btn.classList.toggle('selected', decodeURIComponent(btn.dataset.url) === activeUrl);
+      });
+    });
   }
 }
 

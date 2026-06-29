@@ -30,7 +30,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v6.2.0';
+    const ver = 'v6.2.1';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -97,6 +97,34 @@
     };
     const system = {};
     window.openApplications = [];
+    window.onload = async () => {
+      if (username === 'Sololearn') alert("!! Welcome to TermOS !! \n\nThis is a complete web operating system. Explore the terminal, file system, and applications. Feel free to share feedback and suggestions—they help improve the OS! \n\nThanks for trying TermOS!");
+      else if (username === '') {
+        alert("System Maintenance\n\nTermOS is currently undergoing maintenance. Please try again in a few minutes.");
+        return;
+      }
+      system.iDBFS = new IndexedDBFileSystem();
+      system.wallpaper = {
+        key: 'termOS_wallpaper',
+        defaultUrl: 'https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8d2FsbHBhcGVyJTIwNGt8ZW58MHx8MHx8fDA%3D',
+        get() {
+          return StorageManager.getItem(this.key) || this.defaultUrl;
+        },
+        apply(url = null) {
+          const wallpaper = url ? url : this.get();
+          document.body.style.backgroundImage = `url("${wallpaper}")`;
+          StorageManager.setItem(this.key, wallpaper);
+        },
+        reset() {
+          this.apply(this.defaultUrl);
+        }
+      };
+      system.wallpaper.apply();
+      system.fileSystem = await FileSystem.create();
+      system.desktop = new Desktop();
+      system.taskbar = new TaskBar();
+      new Terminal();
+    }
     function isTouchEvent(e) {
       if (!e) return false;
       try {
@@ -107,7 +135,6 @@
       } catch (err) { }
       return false;
     }
-
     class IndexedDBFileSystem {
       constructor() {
         this.FS_DB_NAME = 'TermOS';
@@ -188,18 +215,6 @@
         }
         return true;
       }
-    }
-    window.onload = async () => {
-      if (username === 'Sololearn') alert("!! Welcome to TermOS !! \n\nThis is a complete web operating system. Explore the terminal, file system, and applications. Feel free to share feedback and suggestions—they help improve the OS! \n\nThanks for trying TermOS!");
-      else if (username === '') {
-        alert("System Maintenance\n\nTermOS is currently undergoing maintenance. Please try again in a few minutes.");
-        return;
-      }
-      system.iDBFS = new IndexedDBFileSystem();
-      system.fileSystem = await FileSystem.create();
-      system.desktop = new Desktop();
-      system.taskbar = new TaskBar();
-      new Terminal();
     }
     async function copyText(text) {
       let copySuccess = false;
@@ -496,6 +511,12 @@
             name: 'page.html',
             content: 'This is a test HTML page.',
             path: '/bin'
+          },
+          {
+            name: "settings.app",
+            icon: icons.settings,
+            content: 'new SettingsApp(args);',
+            path: '/bin/apps'
           },
           {
             name: "file_explorer.app",
@@ -1191,6 +1212,7 @@
     }
     class Desktop {
       constructor() {
+        this.desktopPath = '/bin/desktop';
         this.selectedIcons = new Set();
         this.ctrlSelectedIcons = new Set();
         this.draggedIcon = null;
@@ -1219,7 +1241,7 @@
       }
       loadDesktopShortcuts() {
         try {
-          const desktopItems = system.fileSystem.ls('/bin/desktop');
+          const desktopItems = system.fileSystem.ls(this.desktopPath);
           if (!desktopItems || desktopItems.length === 0) {
             return;
           }
@@ -1286,7 +1308,7 @@
         let position = item.parameters?.desktopPosition;
         if (!position) {
           const { rows } = this.getDesktopGridMetrics();
-          const desktopItems = system.fileSystem.ls('/bin/desktop');
+          const desktopItems = system.fileSystem.ls(this.desktopPath);
           const occupied = new Set();
           desktopItems.forEach(fsItem => {
             const fsPos = fsItem.parameters?.desktopPosition;
@@ -1303,7 +1325,7 @@
           item.parameters = item.parameters || {};
           position = { col, row };
           item.parameters.desktopPosition = position;
-          const desktopItem = system.fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+          const desktopItem = system.fileSystem._resolvePath(`${this.desktopPath}/${item.name}`);
           if (desktopItem) {
             desktopItem.parameters = desktopItem.parameters || {};
             desktopItem.parameters.desktopPosition = { col, row };
@@ -1327,6 +1349,9 @@
         icon.addEventListener('dragover', (e) => this.handleDragOver(e));
         icon.addEventListener('drop', (e) => this.handleDrop(e, icon));
         icon.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        icon.addEventListener('touchmove', (e) => this.handleIconTouchMove(e), { passive: false });
+        icon.addEventListener('touchend', (e) => this.handleIconTouchEnd(e), { passive: false });
+        icon.addEventListener('touchcancel', (e) => this.handleIconTouchEnd(e), { passive: false });
       }
       getDesktopGridMetrics() {
         const desktopRect = this.desktop.getBoundingClientRect();
@@ -1364,7 +1389,7 @@
         const toReposition = [];
         const iconData = icons.map(icon => {
           const itemName = this.getDesktopItemName(icon);
-          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0]) : null;
+          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath(this.desktopPath, itemName)[0]) : null;
           return { icon, desktopItem, savedPos: desktopItem?.parameters?.desktopPosition };
         });
         iconData.forEach(({ icon, savedPos }) => {
@@ -1521,7 +1546,7 @@
           path = targetPath;
           itemType = targetItem.type;
         } else {
-          path = system.fileSystem.getResolvedPath('/bin/desktop', item.name)[0];
+          path = system.fileSystem.getResolvedPath(this.desktopPath, item.name)[0];
         }
         try {
           if (itemType === 'directory') {
@@ -1606,6 +1631,15 @@
           this.selectedIcons.add(e.currentTarget);
           e.currentTarget.classList.add('selected');
           this.lastSelectedIndex = Array.from(this.desktop.querySelectorAll('.desktop-icon')).indexOf(e.currentTarget);
+        }
+      }
+      handleIconTouchMove(e) {
+        const touch = e.touches && e.touches[0];
+        if (!touch || !this.touchTargetIcon) return;
+        const rect = this.touchTargetIcon.getBoundingClientRect();
+        const isOutside = touch.clientX < rect.left || touch.clientX > rect.right || touch.clientY < rect.top || touch.clientY > rect.bottom;
+        if (isOutside) {
+          this.handleIconTouchEnd(e);
         }
       }
       handleDragStart(e) {
@@ -1710,7 +1744,7 @@
               }
             };
 
-            let destDir = '/bin/desktop';
+            let destDir = this.desktopPath;
             this.clearSelection();
             if (targetIcon) {
               const targetItem = this.getDesktopItemFromIcon(targetIcon);
@@ -1722,7 +1756,7 @@
                     this.selectedIcons.add(targetIcon);
                   }
                 } else if (targetItem.type === 'directory') {
-                  destDir = system.fileSystem.getResolvedPath('/bin/desktop', targetItem.name)[0];
+                  destDir = system.fileSystem.getResolvedPath(this.desktopPath, targetItem.name)[0];
                   this.selectedIcons.add(targetIcon);
                 }
               }
@@ -1760,16 +1794,16 @@
               new Dialog('Import Errors', `${successes.length} files imported.`, `Errors:${errorList}`, 'warning', ['Ok'], 'Ok');
             }
             if (successes.length > 0) {
-              const destIsDesktop = destDir === '/bin/desktop';
+              const destIsDesktop = destDir === this.desktopPath;
               if (destIsDesktop) {
-                const importedItems = successes.map(name => system.fileSystem._resolvePath(`/bin/desktop/${name}`)).filter(Boolean);
+                const importedItems = successes.map(name => system.fileSystem._resolvePath(`${this.desktopPath}/${name}`)).filter(Boolean);
                 this.addIconsToDesktop(importedItems);
               } else {
                 this.refreshDesktop();
               }
             }
             try {
-              const destIsDesktop = destDir === '/bin/desktop';
+              const destIsDesktop = destDir === this.desktopPath;
               if (destIsDesktop && successes.length > 0) {
                 this.restoreSelectedIcons(successes);
               }
@@ -1823,7 +1857,7 @@
       saveDesktopIconPositions() {
         this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
           const itemName = this.getDesktopItemName(icon);
-          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0]) : null;
+          const desktopItem = itemName ? system.fileSystem._resolvePath(system.fileSystem.getResolvedPath(this.desktopPath, itemName)[0]) : null;
           const col = parseInt(icon.style.gridColumnStart || '', 10) - 1;
           const row = parseInt(icon.style.gridRowStart || '', 10) - 1;
           if (desktopItem) {
@@ -1859,6 +1893,7 @@
             this.pendingTouchContextMenu = true;
             this.showContextMenu(e);
           }
+          this.touchTimer = null;
         }, 500);
         if (icon) {
           const icons = Array.from(this.desktop.querySelectorAll('.desktop-icon'));
@@ -1875,12 +1910,11 @@
         }
       }
       handleDesktopTouchMove(e) {
-        if (!this.touchTimer && !this.isTouchDragging) return;
         const touch = e.touches[0];
         const dx = touch.clientX - this.touchStartX;
         const dy = touch.clientY - this.touchStartY;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (this.touchTimer && !this.isTouchDragging && distance > 10) {
+        if (!this.touchTimer && !this.isTouchDragging && distance > 10) {
           if (e.preventDefault && e.cancelable) e.preventDefault();
           clearTimeout(this.touchTimer);
           this.touchTimer = null;
@@ -1910,6 +1944,14 @@
             icon.style.gridColumnStart = String(col + 1);
             icon.style.gridRowStart = String(row + 1);
           });
+        }
+      }
+      handleIconTouchEnd(e) {
+        if (this.touchTimer) {
+          clearTimeout(this.touchTimer);
+          this.touchTimer = null;
+          this.handleDragEnd();
+          this.pendingTouchContextMenu = false;
         }
       }
       handleDesktopTouchEnd(e) {
@@ -1995,14 +2037,14 @@
             onClick: () => {
               let newName = "New Folder";
               let counter = 0;
-              const files = system.fileSystem.ls('/bin/desktop');
+              const files = system.fileSystem.ls(this.desktopPath);
               while (files.some(item => item.name === newName)) {
                 counter++;
                 newName = `New Folder (${counter})`;
               }
               try {
-                system.fileSystem.mkdir('/bin/desktop', newName);
-                const newItem = system.fileSystem._resolvePath(`/bin/desktop/${newName}`);
+                system.fileSystem.mkdir(this.desktopPath, newName);
+                const newItem = system.fileSystem._resolvePath(`${this.desktopPath}/${newName}`);
                 if (newItem) {
                   this.addIconsToDesktop([newItem]);
                   this.clearSelection();
@@ -2025,14 +2067,14 @@
             onClick: () => {
               let newName = "New File.txt";
               let counter = 0;
-              const files = system.fileSystem.ls('/bin/desktop');
+              const files = system.fileSystem.ls(this.desktopPath);
               while (files.some(item => item.name === newName)) {
                 counter++;
                 newName = `New File (${counter}).txt`;
               }
               try {
-                system.fileSystem.touch('/bin/desktop', newName);
-                const newItem = system.fileSystem._resolvePath(`/bin/desktop/${newName}`);
+                system.fileSystem.touch(this.desktopPath, newName);
+                const newItem = system.fileSystem._resolvePath(`${this.desktopPath}/${newName}`);
                 if (newItem) {
                   this.addIconsToDesktop([newItem]);
                   this.clearSelection();
@@ -2159,7 +2201,7 @@
       getDesktopItemFromIcon(icon) {
         const itemName = this.getDesktopItemName(icon);
         if (!itemName) return null;
-        const [path, args] = system.fileSystem.getResolvedPath('/bin/desktop', itemName);
+        const [path, args] = system.fileSystem.getResolvedPath(this.desktopPath, itemName);
         const item = system.fileSystem._resolvePath(path + (args || ''));
         if (!item) return null;
         const displayName = system.fileSystem._splitPathAndArgs(item.name)[0];
@@ -2182,7 +2224,7 @@
       }
       updateIconAfterRename(icon, newItemName) {
         if (!icon || !newItemName) return;
-        const item = system.fileSystem._resolvePath(`/bin/desktop/${newItemName}`);
+        const item = system.fileSystem._resolvePath(`${this.desktopPath}/${newItemName}`);
         if (!item) return;
         icon.remove();
         this.selectedIcons.clear();
@@ -2202,7 +2244,7 @@
       }
       addIconsToDesktop(items) {
         if (!items || items.length === 0) return;
-        const desktopItems = system.fileSystem.ls('/bin/desktop') || [];
+        const desktopItems = system.fileSystem.ls(this.desktopPath) || [];
         const { rows } = this.getDesktopGridMetrics();
         const occupied = new Set();
         this.desktop.querySelectorAll('.desktop-icon').forEach(icon => {
@@ -2225,7 +2267,7 @@
             position = { col, row };
             item.parameters = item.parameters || {};
             item.parameters.desktopPosition = position;
-            const desktopItem = system.fileSystem._resolvePath(`/bin/desktop/${item.name}`);
+            const desktopItem = system.fileSystem._resolvePath(`${this.desktopPath}/${item.name}`);
             if (desktopItem) {
               desktopItem.parameters = desktopItem.parameters || {};
               desktopItem.parameters.desktopPosition = position;
@@ -2243,19 +2285,19 @@
       getDesktopSelectedPaths() {
         return Array.from(this.selectedIcons).map(icon => {
           const itemName = this.getDesktopItemName(icon);
-          return system.fileSystem.getResolvedPath('/bin/desktop', itemName)[0];
+          return system.fileSystem.getResolvedPath(this.desktopPath, itemName)[0];
         }).filter(Boolean);
       }
       copySelectedIcons() {
         const paths = this.getDesktopSelectedPaths();
         if (paths.length === 0) return;
-        const clipboardData = { type: 'copy', paths, source: '/bin/desktop' };
+        const clipboardData = { type: 'copy', paths, source: this.desktopPath };
         StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
       }
       cutSelectedIcons() {
         const paths = this.getDesktopSelectedPaths();
         if (paths.length === 0) return;
-        const clipboardData = { type: 'cut', paths, source: '/bin/desktop' };
+        const clipboardData = { type: 'cut', paths, source: this.desktopPath };
         StorageManager.setItem('fileExplorerClipboard', JSON.stringify(clipboardData));
       }
       async pasteSelectedIcons() {
@@ -2268,7 +2310,7 @@
         for (const sourcePath of paths) {
           const fileName = sourcePath.split('/').pop();
           try {
-            const targetPath = system.fileSystem.getResolvedPath('/bin/desktop', fileName)[0];
+            const targetPath = system.fileSystem.getResolvedPath(this.desktopPath, fileName)[0];
             if (sourcePath === targetPath) {
               if (type === 'cut') {
                 successes.push(fileName);
@@ -2296,7 +2338,7 @@
           new Dialog('Desktop - Paste Errors', `${successes.length} of ${paths.length} items pasted successfully.`, `Errors:${errorList}`, 'warning', ['Ok'], 'Ok');
         }
         if (successes.length > 0) {
-          const pastedItems = successes.map(name => system.fileSystem._resolvePath(`/bin/desktop/${name}`)).filter(Boolean);
+          const pastedItems = successes.map(name => system.fileSystem._resolvePath(`${this.desktopPath}/${name}`)).filter(Boolean);
           this.addIconsToDesktop(pastedItems);
         }
       }
@@ -2306,7 +2348,7 @@
         copyText(paths.join('\n'));
       }
       copyCurrentDesktopPath() {
-        copyText('/bin/desktop');
+        copyText(this.desktopPath);
       }
       renameIcon(icon) {
         if (!icon) return;
@@ -2339,10 +2381,15 @@
               this.updateIconAfterRename(icon, itemName);
               return;
             }
+            const matches = system.fileSystem.checkForbiddenChars(trimmed);
+            if (matches) {
+              alert(`The filename contains forbidden characters: ${matches.join(', ')}`);
+              return;
+            }
             const [oldName, args] = system.fileSystem._splitPathAndArgs(this.renamingIconName);
             const nameWithExt = trimmed + ((oldName.endsWith('.app') && item?.type === 'file') ? '.app' : '');
-            const [sourcePath, sourceArgs] = system.fileSystem.getResolvedPath('/bin/desktop', oldName);
-            const [targetPath, targetArgs] = system.fileSystem.getResolvedPath('/bin/desktop', nameWithExt);
+            const [sourcePath, sourceArgs] = system.fileSystem.getResolvedPath(this.desktopPath, oldName);
+            const [targetPath, targetArgs] = system.fileSystem.getResolvedPath(this.desktopPath, nameWithExt);
             try {
               system.fileSystem.mv(sourcePath + (sourceArgs ? ` ${sourceArgs}` : ''), targetPath + (targetArgs ? ` ${targetArgs}` : ''));
               this.renamingIconName = null;
@@ -2384,13 +2431,16 @@
           input.addEventListener('mousedown', (e) => e.stopPropagation());
           input.addEventListener('mouseup', (e) => e.stopPropagation());
           input.addEventListener('dragstart', (e) => e.stopPropagation());
+          input.addEventListener('touchstart', (e) => e.stopPropagation());
+          input.addEventListener('touchend', (e) => e.stopPropagation());
+          input.addEventListener('touchmove', (e) => e.stopPropagation());
           adjustHeight();
           input.focus();
           input.select();
         }
       }
       showPersonalizeMenu() {
-        new Dialog('Personalize', 'Coming Soon', 'Personalization options will be available in a future update. Stay tuned!', 'info', ['Ok'], 'Ok');
+        new SettingsApp('personalization');
       }
       clearSelection() {
         this.desktop.querySelectorAll('.desktop-icon.selected')?.forEach(i => i.classList.remove('selected'));
@@ -2478,7 +2528,7 @@
           const itemName = this.getDesktopItemName(icon);
           const item = this.getDesktopItemFromIcon(icon);
           try {
-            const [path, args] = system.fileSystem.getResolvedPath('/bin/desktop/', itemName);
+            const [path, args] = system.fileSystem.getResolvedPath(this.desktopPath, itemName);
             system.fileSystem.rm(path + (args ? ` ${args}` : ''), true);
             this.removeIconFromDesktop(icon);
           } catch (e) {
