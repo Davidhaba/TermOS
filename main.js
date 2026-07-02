@@ -3894,7 +3894,8 @@ class SettingsApp {
     const wallpaperCards = wallpapers.map((wallpaper) => {
       const selected = (currentWallpaper && wallpaper.name === currentWallpaper.name) ? ' selected' : '';
       const isImageExtension = system.fileSystem.getFileType(wallpaper.name)?.type === 'image';
-      const name = isImageExtension ? wallpaper.name.replace(/\.[^/.]+$/, "") : wallpaper.name;
+      if (!isImageExtension) return '';
+      const name = wallpaper.name.replace(/\.[^/.]+$/, "");
       return `
         <button type="button" class="wallpaper-card${selected}" data-wallpaper-name="${wallpaper.name}">
           <span class="wallpaper-thumb">

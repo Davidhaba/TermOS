@@ -30,7 +30,7 @@
   <script src="main.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
   <script>
-    const ver = 'v6.2.2';
+    const ver = 'v6.2.3';
     const username = 'User';
     const icons = {
       arrowUp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 11.0001L12 6.00006L17 11.0001M12 18.0001V6.00006" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -99,7 +99,7 @@
     system.wallpaper = {
       wallpapersPath: '/bin/wallpapers',
       itemKey: 'termOS_wallpaper',
-      defaultName: 'TermOS Default',
+      defaultName: 'TermOS Default.jpg',
       loadWallpapers() {
         const wallpapers = [];
         const resolved = system.fileSystem._resolvePath(this.wallpapersPath);
@@ -603,28 +603,28 @@
             path: '/bin/apps'
           },
           {
-            name: 'TermOS Default',
+            name: 'TermOS Default.jpg',
             content: 'https://dl.dropbox.com/scl/fi/shj46k0okrlb4zgkp50ln/IMG_20260701_193850_575.jpg?rlkey=d4t5ds71vc35wtt5t5aniej6f&st=z1k8985k',
             path: '/bin/wallpapers'
           },
           {
-            name: 'Dark Aurora',
-            content: 'https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8d2FsbHBhcGVyJTIwNGt8ZW58MHx8MHx8fDA%3D',
+            name: 'Dark Aurora.jpg',
+            content: 'https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg',
             path: '/bin/wallpapers'
           },
           {
-            name: 'Mountain Lake',
-            content: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80',
+            name: 'Mountain Road.png',
+            content: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
             path: '/bin/wallpapers'
           },
           {
-            name: 'Glass Grid',
-            content: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80',
+            name: 'Mountain Mist.png',
+            content: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429',
             path: '/bin/wallpapers'
           },
           {
-            name: 'Ocean Mist',
-            content: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80',
+            name: 'Ocean Glow.png',
+            content: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
             path: '/bin/wallpapers'
           },
           {

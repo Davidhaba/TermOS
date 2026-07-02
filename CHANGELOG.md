@@ -69,6 +69,17 @@ All notable changes to this project are documented below. Click on any version t
 ---
 
 <details>
+<summary><strong>Version 6.2.3 (6.2.2 → 6.2.3)</strong></summary>
+
+### Wallpaper fixes
+- Fixed wallpaper links and renamed wallpapers for correct display
+- Settings now show only files with image file types
+
+</details>
+
+---
+
+<details>
 <summary><strong>Version X</strong></summary>
 
 No changes here...
