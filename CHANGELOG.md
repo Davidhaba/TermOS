@@ -55,6 +55,20 @@ All notable changes to this project are documented below. Click on any version t
 ---
 
 <details>
+<summary><strong>Version 6.2.2 (6.2.1 → 6.2.2)</strong></summary>
+
+### Wallpaper & Settings
+- Added wallpaper selection cards with spinner
+- Wallpapers now save as files
+- New logo and official wallpaper added
+- Moved desktop to `/users/Default/desktop` and media to `/bin/media` (old `/bin` kept for existing users)
+- Fixed various small bugs
+
+</details>
+
+---
+
+<details>
 <summary><strong>Version X</strong></summary>
 
 No changes here...

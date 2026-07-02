@@ -62,8 +62,8 @@ class ContextMenuBuilder {
       item.appendChild(badgeNode);
     }
     item.addEventListener('click', () => {
-      if (onClick && !disabled && typeof onClick === 'function') onClick();
       ContextMenuBuilder.removeMenu();
+      if (onClick && !disabled && typeof onClick === 'function') onClick();
     });
     return item;
   }
@@ -262,7 +262,7 @@ class Modal {
     this.setActiveWindow();
     this.updateTitle(title);
     this.iconHtml = iconHtml;
-    window.openApplications.push(this);
+    system.openApplications.push(this);
   }
   checkBlocking(e = null, animAll = false) {
     if (this.isBlocked) {
@@ -278,7 +278,10 @@ class Modal {
     this.setActiveWindow(!!animAll);
   }
   updateTitle(newTitle = null) {
-    if (this.title) this.title.textContent = newTitle;
+    if (this.title) {
+      this.appName = newTitle;
+      this.title.textContent = this.appName;
+    }
   }
   updateIcon(newIconHtml = null) {
     this.iconHtml = newIconHtml;
@@ -376,9 +379,9 @@ class Modal {
         this.modWindow.remove();
         this.modWindow = null;
         this.childApps.forEach(app => app.handleClose());
-        window.openApplications.splice(window.openApplications.indexOf(this), 1);
+        system.openApplications.splice(system.openApplications.indexOf(this), 1);
       }
-      const openWindows = window.openApplications;
+      const openWindows = system.openApplications;
       if (!openWindows || openWindows.length === 0) {
         const desktop = document.querySelector('.desktop');
         if (desktop && typeof desktop.classList !== 'undefined') {
@@ -544,9 +547,9 @@ class Modal {
     }
   }
   updateApplication() {
-    const i = window.openApplications.indexOf(this);
+    const i = system.openApplications.indexOf(this);
     if (i !== -1) {
-      window.openApplications[i] = this;
+      system.openApplications[i] = this;
     }
   }
 }
@@ -1418,7 +1421,7 @@ class Terminal {
     const [text, filePath] = parts;
     const [fullPath] = system.fileSystem.getResolvedPath(this.context.path, filePath);
     const target = system.fileSystem._resolvePath(fullPath);
-    const success = await system.fileSystem.writeFile(fullPath, text);
+    const success = system.fileSystem.writeFile(fullPath, text);
     if (!success) throw new Error(`Failed to write to file '${fullPath}'`);
     this.addOutputLine(`Content written to '${fullPath}'`);
   }
@@ -1653,7 +1656,7 @@ class Terminal {
       this.updateProgressBar(progressBar, 99, loaded, total, "Saving to " + fullPath);
       const blob = new Blob(chunks);
       const content = new Uint8Array(await blob.arrayBuffer());
-      const success = await system.fileSystem.writeFile(fullPath, content, true);
+      const success = system.fileSystem.writeFile(fullPath, content, true);
       if (!success) throw new Error('Failed to save file');
       this.updateProgressBar(progressBar, 100, loaded, total, "Saved to " + fullPath);
       this.addOutputLine("Download complete", 'success');
@@ -1685,7 +1688,7 @@ class Terminal {
         } else {
           const [newFilePath] = system.fileSystem.getResolvedPath(this.context.path, item.path);
           system.fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
-          await system.fileSystem.writeFile(newFilePath, item.content, true);
+          system.fileSystem.writeFile(newFilePath, item.content, true);
         }
       }
       this.addOutputLine(`Successfully unarchived into ${this.context.path}`, 'success');
@@ -1870,13 +1873,13 @@ class TextEditor {
           defaultFileName: this.name || 'newfile.txt',
           parentModal: this.app
         });
-        newPath = await selector.open();
+        newPath = await selector.open().then(r => r?.path).catch(() => null);
         if (!newPath) return;
       }
 
       const dirPath = newPath.split('/').slice(0, -1).join('/');
       system.fileSystem.mkdirp(dirPath);
-      const success = await system.fileSystem.writeFile(newPath, this.textarea.value);
+      const success = system.fileSystem.writeFile(newPath, this.textarea.value);
       if (success) {
         this.path = newPath;
         this.name = newPath.split('/').pop();
@@ -1935,10 +1938,10 @@ class TextEditor {
       const selector = new PathSelector({
         mode: 'open',
         initialPath: this.path ? this.path.split('/').slice(0, -1).join('/') : '/home',
-        defaultFileName: this.name || 'newfile.txt',
+        defaultFileName: this.name || 'file.txt',
         parentModal: this.app
       });
-      const selectedPath = await selector.open();
+      const selectedPath = await selector.open().then(r => r?.path).catch(() => null);
       if (!selectedPath) return;
 
       this.path = selectedPath;
@@ -2904,7 +2907,7 @@ class FileExplorer {
         } else {
           const newFilePath = system.fileSystem.getResolvedPath(savedPath, item.path)[0];
           system.fileSystem.mkdirp(newFilePath.split('/').slice(0, -1).join('/'));
-          await system.fileSystem.writeFile(newFilePath, item.content, true);
+          system.fileSystem.writeFile(newFilePath, item.content, true);
         }
         filesProcessed++;
         manager.updateProgress(filesProcessed, totalFiles, item.path, file.name, savedPath);
@@ -2983,7 +2986,7 @@ class FileExplorer {
   }
 
   getBookmarks() {
-    const defaultBookmarks = ['/home', '/bin/desktop'];
+    const defaultBookmarks = ['/home', '/users/Default/desktop'];
     const stored = JSON.parse(StorageManager.getItem('fileExplorerBookmarks') || 'null');
     if (Array.isArray(stored)) {
       return stored;
@@ -3294,7 +3297,7 @@ class PathSelector {
 
       filenameInput = document.createElement('input');
       filenameInput.type = 'text';
-      filenameInput.placeholder = 'Untitled.txt';
+      filenameInput.placeholder = this.defaultFileName || 'Untitled.txt';
       filenameInput.className = 'ps-filename-input';
 
       filenameContainer.appendChild(filenameLabel);
@@ -3309,13 +3312,12 @@ class PathSelector {
     saveBtn.textContent = this.mode === 'save' ? 'Save' : 'Open';
     saveBtn.className = this.mode === 'save' ? 'ps-save-btn' : 'ps-open-btn';
     saveBtn.onclick = () => {
-      let finalPath = null;
       if (this.mode === 'save' || this.mode === 'open') {
-        const filename = this.filenameInput?.value?.trim() || 'Untitled.txt';
-        finalPath = system.fileSystem.getResolvedPath(this.currentPath, filename)[0];
-      }
-      if (finalPath) {
-        this.closeSelector(finalPath);
+        const filename = this.filenameInput?.value?.trim() || this.defaultFileName || 'Untitled.txt';
+        const finalPath = system.fileSystem.getResolvedPath(this.currentPath, filename)[0];
+        if (finalPath) {
+          this.closeSelector({ path: finalPath, mode: this.mode, directory: this.currentPath, filename: filename });
+        }
       }
     };
 
@@ -3337,8 +3339,12 @@ class PathSelector {
     this.fileListContainer = fileListContainer;
     this.filenameInput = filenameInput;
     this.app.setApp();
-    if (this.defaultFileName && this.filenameInput) {
-      this.filenameInput.value = this.defaultFileName;
+    if (this.defaultFileName) {
+      if (this.filenameInput) this.filenameInput.value = this.defaultFileName;
+      if (this.initialPath) {
+        const fullPath = system.fileSystem.getResolvedPath(this.initialPath, this.defaultFileName)[0];
+        if (fullPath) this.selectedPath = fullPath;
+      }
     }
     this.updatePathSelector();
   }
@@ -3370,7 +3376,7 @@ class PathSelector {
     const items = [
       { name: 'Root', path: '/' },
       { name: 'Home', path: '/home' },
-      { name: 'Desktop', path: '/bin/desktop' }
+      { name: 'Desktop', path: '/users/Default/desktop' }
     ];
 
     items.forEach(item => {
@@ -3812,40 +3818,13 @@ class VideoPlayer {
 class SettingsApp {
   constructor(args = null, path = null) {
     const requestedSection = typeof args === 'string' ? args.toLowerCase() : null;
-    const activeSection = requestedSection === 'appearance' ? 'appearance' : 'personalization';
+    this.activeSection = requestedSection === 'appearance' ? 'appearance' : 'personalization';
     this.iconHtml = icons.settings;
     this.app = new Modal("Settings", this.iconHtml);
     this.appMain = this.app.appMain;
     this.app.setApp();
     this.app.setupInfoBtn('Settings', 'Settings is the control center for your desktop. Use it to change the wallpaper and personalize the system.');
     this.appMain.classList.add('settings-app');
-    this.wallpapers = [
-      {
-        name: 'Dark Aurora',
-        url: 'https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8d2FsbHBhcGVyJTIwNGt8ZW58MHx8MHx8fDA%3D'
-      },
-      {
-        name: 'Mountain Lake',
-        url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80'
-      },
-      {
-        name: 'Glass Grid',
-        url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80'
-      },
-      {
-        name: 'Ocean Mist',
-        url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80'
-      }
-    ];
-    const currentWallpaper = system.wallpaper.get();
-    const wallpaperCards = this.wallpapers.map((wallpaper) => {
-      const selected = wallpaper.url === currentWallpaper ? ' selected' : '';
-      return `
-        <button type="button" class="wallpaper-card${selected}" data-url="${encodeURIComponent(wallpaper.url)}">
-          <span class="wallpaper-thumb" style="background-image:url('${wallpaper.url}')"></span>
-          <span class="wallpaper-name">${wallpaper.name}</span>
-        </button>`;
-    }).join('');
 
     this.appMain.innerHTML = `
       <div class="settings-shell">
@@ -3863,7 +3842,8 @@ class SettingsApp {
               </div>
               <button type="button" class="settings-button reset-wallpaper">Reset Wallpaper</button>
             </div>
-            <div class="wallpaper-grid">${wallpaperCards}</div>
+            <div class="wallpaper-grid">Loading wallpapers...</div>
+            <button type="button" class="settings-button choose-custom-wallpaper">+ Choose Custom Image</button>
           </div>
           <div class="settings-section" data-section="appearance">
             <div class="settings-section-header">
@@ -3891,7 +3871,13 @@ class SettingsApp {
     this.sections = this.appMain.querySelectorAll('.settings-section');
     this.wallpaperButtons = this.appMain.querySelectorAll('.wallpaper-card');
     this.resetButton = this.appMain.querySelector('.reset-wallpaper');
-    this.setActiveSection(activeSection);
+    this.chooseCustomButton = this.appMain.querySelector('.choose-custom-wallpaper');
+    this.init();
+  }
+
+  init() {
+    this.setActiveSection(this.activeSection);
+    this.updateWallpaperGrid();
     this.addListeners();
     this.app.setupExitBtn();
   }
@@ -3899,6 +3885,69 @@ class SettingsApp {
   setActiveSection(section) {
     this.sectionButtons.forEach((button) => button.classList.toggle('active', button.dataset.section === section));
     this.sections.forEach((sectionEl) => sectionEl.classList.toggle('active', sectionEl.dataset.section === section));
+  }
+
+  updateWallpaperGrid() {
+    const wallpaperGrid = this.appMain.querySelector('.wallpaper-grid');
+    const currentWallpaper = system.wallpaper.get();
+    const wallpapers = system.wallpaper.getAll();
+    const wallpaperCards = wallpapers.map((wallpaper) => {
+      const selected = (currentWallpaper && wallpaper.name === currentWallpaper.name) ? ' selected' : '';
+      const isImageExtension = system.fileSystem.getFileType(wallpaper.name)?.type === 'image';
+      const name = isImageExtension ? wallpaper.name.replace(/\.[^/.]+$/, "") : wallpaper.name;
+      return `
+        <button type="button" class="wallpaper-card${selected}" data-wallpaper-name="${wallpaper.name}">
+          <span class="wallpaper-thumb">
+            <span class="thumb-spinner loading-spinner"></span>
+          </span>
+          <span class="wallpaper-name">${name}</span>
+        </button>`;
+    });
+    wallpaperGrid.innerHTML = wallpaperCards.join('');
+    this.wallpaperButtons = this.appMain.querySelectorAll('.wallpaper-card');
+    this.attachWallpaperListeners();
+    this.loadWallpaperImages(wallpapers);
+  }
+
+  async loadWallpaperImages(wallpapers) {
+    for (const wallpaper of wallpapers) {
+      try {
+        const card = this.appMain.querySelector(`.wallpaper-card[data-wallpaper-name="${CSS.escape(wallpaper.name)}"]`);
+        if (!card) continue;
+        const thumb = card.querySelector('.wallpaper-thumb');
+        if (thumb) {
+          this.setBackgroundImage(thumb, wallpaper.content);
+        }
+      } catch (e) { }
+    }
+  }
+
+  async setBackgroundImage(thumb = null, content = null) {
+    const sp = thumb.querySelector('.thumb-spinner');
+    if (sp) sp.style.opacity = 1;
+    const remove = () => {
+      if (sp && sp.remove) sp.remove();
+    }
+    const url = await system.fileSystem.decodeContent(content, 'url');
+    try {
+      const img = new Image();
+      img.onload = () => remove();
+      img.onerror = () => remove();
+      img.src = url;
+    } catch (e) {
+      remove();
+    }
+    thumb.style.backgroundImage = `url('${url}')`;
+  }
+  attachWallpaperListeners() {
+    this.wallpaperButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const wallpaperName = button.dataset.wallpaperName;
+        system.wallpaper.apply(wallpaperName);
+        this.wallpaperButtons.forEach((btn) => btn.classList.remove('selected'));
+        button.classList.add('selected');
+      });
+    });
   }
 
   addListeners() {
@@ -3910,20 +3959,36 @@ class SettingsApp {
       });
     });
 
-    this.wallpaperButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const url = decodeURIComponent(button.dataset.url);
-        system.wallpaper.apply(url);
-        this.wallpaperButtons.forEach((btn) => btn.classList.toggle('selected', btn === button));
+
+    this.resetButton.addEventListener('click', async () => {
+      await system.wallpaper.reset();
+      const activeWallpaper = system.wallpaper.get();
+      this.wallpaperButtons.forEach((btn) => {
+        const btnWallpaper = btn.dataset.wallpaperName;
+        btn.classList.toggle('selected', (activeWallpaper && btnWallpaper === activeWallpaper.name));
       });
     });
 
-    this.resetButton.addEventListener('click', () => {
-      system.wallpaper.reset();
-      const activeUrl = system.wallpaper.get();
-      this.wallpaperButtons.forEach((btn) => {
-        btn.classList.toggle('selected', decodeURIComponent(btn.dataset.url) === activeUrl);
+    this.chooseCustomButton.addEventListener('click', async () => {
+      const pathSelector = new PathSelector({
+        mode: 'open',
+        parentModal: this.app
       });
+      const result = await pathSelector.open();
+      const selectedPath = result?.path || null;
+      const filename = result?.filename || null;
+      if (selectedPath && filename) {
+        try {
+          const content = await system.fileSystem.asyncReadFile(selectedPath);
+          const wallpaper = await system.wallpaper.add(filename, content);
+          if (wallpaper && typeof wallpaper.name === 'string') {
+            await system.wallpaper.apply(wallpaper.name);
+            this.updateWallpaperGrid();
+          }
+        } catch (error) {
+          new Dialog('Error', 'Failed to load image', error.message, 'error', ['OK'], 'OK', this.app);
+        }
+      }
     });
   }
 }
@@ -4110,7 +4175,6 @@ class Browser {
     );
     if (path) {
       const name = path.split('/').pop();
-      this.app.updateTitle(name + " - Browser");
       system.fileSystem.asyncReadFile(path).then((content) => {
         return system.fileSystem.decodeContent(content, 'text');
       }).then((html) => {
@@ -4119,7 +4183,7 @@ class Browser {
         console.error("Error loading file:", error.message);
       });
     } else {
-      new Dialog('Browser - Error', 'No file specified', 'The Browser app requires a file path to open. Please select an HTML file from the file explorer to view it in the browser.', 'error', ['Ok'], 'Ok', this.app);
+      this.updateViewer('<!DOCTYPE html><html><head><title>Browser</title></head><body><p>No HTML file specified.</p></body></html>');
     }
   }
   updateViewer(html) {
@@ -4284,7 +4348,7 @@ class TaskManager {
   }
 
   getApplications() {
-    return window.openApplications.filter(app =>
+    return system.openApplications.filter(app =>
       app && app.modWindow && app.modWindow.parentElement && !app.parentApp
     );
   }

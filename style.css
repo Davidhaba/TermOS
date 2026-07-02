@@ -45,8 +45,8 @@ body {
   justify-content: center;
   align-items: center;
   flex-direction: column;
-  background-color: #1F1F1F;
-  background-image: url('https://images.unsplash.com/photo-1657632843433-e6a8b7451ac6?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8d2FsbHBhcGVyJTIwNGt8ZW58MHx8MHx8fDA%3D');
+  background-color: #131313;
+  background-image: url('');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -166,11 +166,11 @@ body {
   text-overflow: ellipsis;
   color: #ffffff;
   text-shadow:
-    -1px -1px 0 rgba(0,0,0,0.95),
-     1px -1px 0 rgba(0,0,0,0.95),
-    -1px  1px 0 rgba(0,0,0,0.95),
-     1px  1px 0 rgba(0,0,0,0.95),
-     0px  2px 4px rgba(0,0,0,0.6);
+    -1px -1px 0 rgba(0, 0, 0, 0.95),
+    1px -1px 0 rgba(0, 0, 0, 0.95),
+    -1px 1px 0 rgba(0, 0, 0, 0.95),
+    1px 1px 0 rgba(0, 0, 0, 0.95),
+    0px 2px 4px rgba(0, 0, 0, 0.6);
   font-weight: 600;
   max-width: 78px;
   margin: 0;
@@ -554,7 +554,7 @@ html:has(.modal-window.resizing) * {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px 0 0 18px;
   width: 100%;
-  padding: 20px;
+  padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -563,14 +563,14 @@ html:has(.modal-window.resizing) * {
 
 .settings-section {
   display: none;
-  height: 100%;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .settings-section.active {
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  height: 100%;
 }
 
 .settings-section-header {
@@ -618,7 +618,7 @@ html:has(.modal-window.resizing) * {
 
 .wallpaper-card {
   min-width: 0;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.06);
@@ -626,15 +626,16 @@ html:has(.modal-window.resizing) * {
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease-in-out, border-color 0.2s ease, background 0.2s ease;
   text-align: left;
   padding: 0;
+  position: relative;
 }
 
 .wallpaper-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(96, 165, 250, 0.5);
   background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+  z-index: 1;
 }
 
 .wallpaper-card.selected {
@@ -649,10 +650,32 @@ html:has(.modal-window.resizing) * {
 }
 
 .wallpaper-name {
-  padding: 12px 14px;
-  font-size: 14px;
+  padding: 14px 6px 14px 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #f8fafc;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: linear-gradient(180deg, 
+    rgba(0, 0, 0, 0) 0%, 
+    rgba(0, 0, 0, 0.4) 40%, 
+    rgba(0, 0, 0, 0.85) 100%);
+  letter-spacing: 0.5px;
+  text-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease-in-out;
+  opacity: 1;
+  box-sizing: border-box;
+}
+
+.wallpaper-card:hover .wallpaper-name {
+  opacity: 0;
 }
 
 .settings-panel {
