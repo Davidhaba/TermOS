@@ -283,7 +283,7 @@ class Modal {
       this.title.textContent = this.appName;
     }
   }
-  updateIcon(newIconHtml = null) {
+  setIcon(newIconHtml = null) {
     this.iconHtml = newIconHtml;
     this.updateApplication();
   }
@@ -550,6 +550,7 @@ class Modal {
     const i = system.openApplications.indexOf(this);
     if (i !== -1) {
       system.openApplications[i] = this;
+      system.taskbar.updateTaskItem(this);
     }
   }
 }
@@ -2568,6 +2569,8 @@ class FileExplorer {
       this.updateFileSelection();
     }
     const savedPath = this.context.path;
+    const currentPath = savedPath.split('/').pop() || null;
+    const currentResolved = system.fileSystem._resolvePath(savedPath) || null;
     const savedSelectedArray = Array.from(this.selectedItems);
     const selectedFiles = savedSelectedArray.map(name => system.fileSystem.ls(savedPath).find((f) => f.name === name)).filter(Boolean);
     const clipboardData = JSON.parse(StorageManager.getItem('fileExplorerClipboard') || 'null');
@@ -2577,9 +2580,9 @@ class FileExplorer {
     const hasSelection = selectionCount > 0;
     const isFileMenu = hasSelection && targetFile;
     const headerIconHtml = isFileMenu ? (selectionCount > 1
-      ? icons.files : this.getFileIcon(selectedFiles[0], false)) : icons.explorer;
+      ? icons.files : this.getFileIcon(selectedFiles[0], false)) : this.getFileIcon(currentResolved);
     const headerLabelText = isFileMenu ? (selectionCount > 1
-      ? 'Selected items' : selectedFiles[0].name) : 'File Explorer';
+      ? 'Selected items' : selectedFiles[0].name) : (currentPath || 'root');
 
     const items = [];
 
@@ -2694,7 +2697,26 @@ class FileExplorer {
           await this.deleteSelectedMultiple(selectedFiles, savedPath);
         }
       });
+
+      items.push({ isSeparator: true });
+      items.push({
+        iconHtml: icons.properties,
+        label: 'Properties',
+        className: 'properties',
+        onClick: async () => {
+          this.showProperties(selectedFiles, savedPath);
+        }
+      });
     } else {
+      items.push({
+        iconHtml: icons.openNewWindow,
+        label: 'Open in New Window',
+        className: 'open-new-window',
+        onClick: () => {
+          new FileExplorer(null, (savedPath || '/'));
+        }
+      });
+      items.push({ isSeparator: true });
       if (hasClipboard) {
         items.push({
           iconHtml: icons.paste,
@@ -2838,6 +2860,217 @@ class FileExplorer {
       this.updateFileList();
     }
   }
+
+
+  async showProperties(files = [], path = null) {
+    if (!path) path = this.context.path;
+    if (files.length === 0) {
+      const allFiles = system.fileSystem.ls(path);
+      files = Array.from(this.selectedItems).map(name => allFiles.find((f) => f.name === name)).filter(Boolean) || [];
+      if (files.length === 0) return;
+    }
+
+    if (files.length > 1) {
+      this.showMultipleFilesProperties(files, path);
+      return;
+    }
+
+    const file = files[0];
+    const fullPath = system.fileSystem.getResolvedPath(path, file.name)[0];
+    const fileInfo = system.fileSystem._resolvePath(fullPath);
+
+    const propsApp = new Modal('Properties', icons.properties);
+    propsApp.modWindow.classList.add('properties-modal');
+    propsApp.setupExitBtn();
+
+    const appMain = propsApp.appMain;
+    appMain.className = 'properties-content';
+
+    const header = document.createElement('div');
+    header.className = 'props-header';
+    header.innerHTML = `
+      <div class="props-icon">${this.getFileIcon(file, false)}</div>
+      <div class="props-header-info">
+        <h3>${this.escapeHtml(file.name)}</h3>
+        <p>${file.type === 'directory' ? 'Directory' : file.type === 'file' ? 'File' : file.type === 'link' ? 'Link' : file.type}</p>
+      </div>
+    `;
+    appMain.appendChild(header);
+
+    const table = document.createElement('div');
+    table.className = 'props-table';
+
+    const properties = [];
+
+    properties.push({ label: 'Location:', value: this.escapeHtml(path) });
+    if (file.type === 'link' && file.target) {
+      properties.push({ label: 'Target:', value: this.escapeHtml(file.target) });
+    }
+    properties.push({ label: 'Size:', value: this.getFormattedSize(file, fullPath) });
+
+    if (file.type === 'directory') {
+      const contents = system.fileSystem.ls(fullPath) || [];
+      const fileCount = contents.filter(f => f.type === 'file' || f.type === 'link').length;
+      const folderCount = contents.filter(f => f.type === 'directory').length;
+      properties.push({
+        label: 'Content:',
+        value: `${fileCount} file${fileCount !== 1 ? 's' : ''}, ${folderCount} folder${folderCount !== 1 ? 's' : ''}`
+      });
+    }
+
+    if (fileInfo?.parameters?.created) {
+      properties.push({
+        label: 'Created:',
+        value: this.formatDate(fileInfo.parameters.created)
+      });
+    }
+    if (fileInfo?.parameters?.modified) {
+      properties.push({
+        label: 'Modified:',
+        value: this.formatDate(fileInfo.parameters.modified)
+      });
+    }
+
+    if (file.type === 'file') {
+      const fileType = system.fileSystem.getFileType(file.name);
+      properties.push({
+        label: 'File Type:',
+        value: (fileType && fileType.type !== 'file') ? fileType.display : 'Unknown Type'
+      });
+    }
+
+    if (fileInfo?.parameters?.isSystem) {
+      properties.push({
+        label: 'Attributes:',
+        value: 'System'
+      });
+    }
+
+    if (file.type === 'file' && fileInfo?.parameters?.encoding) {
+      properties.push({
+        label: 'Encoding:',
+        value: fileInfo.parameters.encoding
+      });
+    }
+
+    properties.forEach(prop => {
+      const row = document.createElement('div');
+      row.className = 'props-row';
+      row.innerHTML = `
+        <div class="props-label">${prop.label}</div>
+        <div class="props-value" title="${prop.value}">${prop.value}</div>
+      `;
+      table.appendChild(row);
+    });
+
+    appMain.appendChild(table);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'props-buttons';
+    const copyPathBtn = document.createElement('button');
+    copyPathBtn.textContent = 'Copy Path';
+    copyPathBtn.onclick = async () => {
+      try {
+        await copyText(fullPath);
+        copyPathBtn.textContent = 'Copied!';
+        setTimeout(() => {
+          copyPathBtn.textContent = 'Copy Path';
+        }, 2000);
+      } catch (e) {
+        alert('Error copying path: ' + e.message);
+      }
+    };
+    buttonContainer.appendChild(copyPathBtn);
+    appMain.appendChild(buttonContainer);
+
+    propsApp.updateTitle(`${file.name} - Properties`);
+  }
+
+  showMultipleFilesProperties(files = [], path = null) {
+    const propsApp = new Modal('Properties', icons.properties);
+    propsApp.modWindow.classList.add('properties-modal');
+    propsApp.setupExitBtn();
+
+    const appMain = propsApp.appMain;
+    appMain.className = 'properties-content';
+
+    const header = document.createElement('div');
+    header.className = 'props-header';
+    header.innerHTML = `
+      <div class="props-icon">${icons.files}</div>
+      <div class="props-header-info">
+        <h3>Selected ${files.length} items</h3>
+        <p>General information about the selected items</p>
+      </div>
+    `;
+    appMain.appendChild(header);
+
+    const table = document.createElement('div');
+    table.className = 'props-table';
+
+    let totalSize = 0;
+    let fileCount = 0;
+    let folderCount = 0;
+
+    files.forEach(file => {
+      const size = system.fileSystem.getItemSize(file);
+      totalSize += size;
+      if (file.type === 'file') {
+        fileCount++;
+      } else if (file.type === 'directory') {
+        folderCount++;
+      }
+    });
+
+    const properties = [
+      { label: 'File Count:', value: `${fileCount}` },
+      { label: 'Folder Count:', value: `${folderCount}` },
+      { label: 'Total Items:', value: `${files.length}` },
+      { label: 'Total Size:', value: system.fileSystem.formatSize(totalSize) }
+    ];
+
+    properties.forEach(prop => {
+      const row = document.createElement('div');
+      row.className = 'props-row';
+      row.innerHTML = `
+        <div class="props-label">${prop.label}</div>
+        <div class="props-value">${prop.value}</div>
+      `;
+      table.appendChild(row);
+    });
+
+    appMain.appendChild(table);
+    propsApp.updateTitle('Properties - Multiple Items');
+  }
+
+  formatDate(timestamp) {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString('uk-UA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
+  getFormattedSize(file, fullPath) {
+    const size = system.fileSystem.getItemSize(file);
+    const formatted = system.fileSystem.formatSize(size);
+
+    if (file.type === 'directory') {
+      return formatted;
+    } else {
+      const bytes = size.toString();
+      return `${formatted} (${bytes} bytes)`;
+    }
+  }
+
   async deleteSelectedMultiple(files = [], path = null) {
     if (!path) path = this.context.path;
     if (files.length === 0) {
@@ -2929,6 +3162,7 @@ class FileExplorer {
           this.context.path = path;
           this.clearSelection();
           this.searchTerm = '';
+          this.app.setIcon(this.getFileIcon(resolved));
         }
         this.updateFileList();
         this.updateBreadcrumb();
